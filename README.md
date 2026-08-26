@@ -4,6 +4,8 @@
 
 GoodJob is an out-of-tree DeepSeek Harness plugin (a *bundle*). It gives you an IDE-style operations workspace over Jobs, durable Job Groups, Waits, recursive Subagents, and optional Agent Teams without creating a second scheduler, task board, event bus, transcript store, or conversation surface. Execution remains owned by the DSH capability that started it.
 
+Security reports should follow the private process in [SECURITY.md](SECURITY.md).
+
 ```bash
 npx @deepseek-ai/dsh plugin --profile web add github:fentz26/dsh-goodjob
 ```
