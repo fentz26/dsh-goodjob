@@ -23,7 +23,6 @@
     "allowImportingTsExtensions": true,
     "noEmit": false,
     "declaration": true,
-    "baseUrl": ".",
     "paths": {
       "@deepseek-ai/*": [
         "node_modules/@deepseek-ai/*"

@@ -4,7 +4,7 @@
  * @module dsh-goodjob/client/locales
  */
 /** Locale namespace owned by the operations view. */
-export declare const NS: "goodjob";
+export declare const NS: 'goodjob';
 declare module '@deepseek-ai/dsh-client-ui-slots' {
     interface LocaleNamespaceMap {
         /** GoodJob operations and settings copy. */

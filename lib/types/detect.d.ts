@@ -27,7 +27,7 @@ export interface DetectedSeams {
     } | undefined;
 }
 /** Names of every seam GoodJob optionally consumes. */
-export declare const SEAM_NAMES: readonly ["sessionProjections", "settings"];
+export declare const SEAM_NAMES: readonly ['sessionProjections', 'settings'];
 /**
  * Read each seam through `ctx.get`, which returns undefined for absent
  * services without topology sensitivity.

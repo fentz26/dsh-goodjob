@@ -126,7 +126,7 @@ if (undo) {
   writeFileSync(pathsFile, `${JSON.stringify({ compilerOptions: { paths } }, undefined, 2)}\n`)
   const devConfig = {
     extends: './tsconfig.json',
-    compilerOptions: { baseUrl: '.', paths: typeEntries },
+    compilerOptions: { paths: typeEntries },
   }
   writeFileSync(devConfigFile, `${JSON.stringify(devConfig, undefined, 2)}\n`)
   console.log(`setup-dev: wrote ${pathsFile} and ${devConfigFile}`)
