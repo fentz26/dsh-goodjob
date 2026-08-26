@@ -19,6 +19,7 @@ import { z as zod } from 'zod'
 import type {} from '@deepseek-ai/dsh-session-projection'
 import { applyWaitEvent } from './fold.ts'
 import { detectSeams, missingSeamDiagnostics } from './detect.ts'
+import type { DetectedSeams } from './detect.ts'
 import type { GoodJobWaitsProjection, ProjectionRegistry } from './types.ts'
 
 import { Config, DEFAULTS } from './config.ts'
@@ -73,33 +74,68 @@ export default class GoodJobService extends Service {
     super(ctx, 'goodjob')
     this.config = config as unknown as Required<Config>
     const detected = detectSeams(ctx)
+    // A seam absent at load may still mount later in the same composition;
+    // `internal/service` fires on every binding, so attach lazily. The
+    // diagnostics name the floor rather than pretending permanence.
+    this.attachSeams(detected)
+    ctx.on('internal/service', (name: string, value: unknown) => {
+      if (name === 'settings' && this.settingsAttached === false) {
+        this.settingsAttached = true
+        this.attachSettings(value as NonNullable<DetectedSeams['settings']>)
+      }
+      if (name === 'sessionProjections' && this.projectionsAttached === false) {
+        this.projectionsAttached = true
+        this.attachProjections(value as NonNullable<DetectedSeams['projections']>)
+      }
+    })
+  }
+
+  /** Whether each seam has been wired (immediately or late). */
+  private settingsAttached = false
+  private projectionsAttached = false
+
+  /**
+   * Wire every seam present at construction and report the absent ones.
+   * @param detected - seams resolved from the global store at load.
+   */
+  private attachSeams(detected: DetectedSeams): void {
     for (const line of missingSeamDiagnostics(detected)) process.stderr.write(`${line}\n`)
-    if (detected.settings !== undefined) {
-      const settings = detected.settings
-      ctx.effect(
-        () => settings.register('goodjob', Config),
-        'goodjob: settings namespace',
-      )
-    }
-    if (detected.projections !== undefined) {
-      // The registry keys its internal effect to its own context, so GoodJob
-      // owns the returned disposer: unloading this service unregisters the
-      // key even while the projection registry stays mounted.
-      const projections = detected.projections
-      ctx.effect(
-        () => projections.register({
-          key: 'goodjob/waits',
-          stateSchema: goodJobWaitsSchema,
-          init: () => null,
-          apply: (state, event) => applyWaitEvent(state, event) as GoodJobWaitsProjection | null,
-          stateVersion: WAITS_STATE_VERSION,
-          wire: {
-            viewSchema: goodJobWaitsSchema,
-            view: state => state,
-          },
-        }),
-        'goodjob: waits projection',
-      )
-    }
+    if (detected.settings !== undefined) this.attachSettings(detected.settings)
+    if (detected.projections !== undefined) this.attachProjections(detected.projections)
+  }
+
+  /**
+   * Register the settings namespace as an effect of this service's fiber.
+   * @param settings - the settings registry seam.
+   */
+  private attachSettings(settings: NonNullable<DetectedSeams['settings']>): void {
+    this.ctx.effect(
+      () => settings.register('goodjob', Config),
+      'goodjob: settings namespace',
+    )
+  }
+
+  /**
+   * Install the waits projection. The registry keys its internal effect to
+   * its own context, so GoodJob owns the returned disposer: unloading this
+   * service unregisters the key even while the projection registry stays
+   * mounted.
+   * @param registry - the session-projection registry seam.
+   */
+  private attachProjections(registry: NonNullable<DetectedSeams['projections']>): void {
+    this.ctx.effect(
+      () => registry.register({
+        key: 'goodjob/waits',
+        stateSchema: goodJobWaitsSchema,
+        init: () => null,
+        apply: (state, event) => applyWaitEvent(state, event) as GoodJobWaitsProjection | null,
+        stateVersion: WAITS_STATE_VERSION,
+        wire: {
+          viewSchema: goodJobWaitsSchema,
+          view: state => state,
+        },
+      }),
+      'goodjob: waits projection',
+    )
   }
 }

@@ -33,4 +33,25 @@ export default class GoodJobService extends Service {
      * @param config - validated plugin configuration.
      */
     constructor(ctx: Context, config: Config);
+    /** Whether each seam has been wired (immediately or late). */
+    private settingsAttached;
+    private projectionsAttached;
+    /**
+     * Wire every seam present at construction and report the absent ones.
+     * @param detected - seams resolved from the global store at load.
+     */
+    private attachSeams;
+    /**
+     * Register the settings namespace as an effect of this service's fiber.
+     * @param settings - the settings registry seam.
+     */
+    private attachSettings;
+    /**
+     * Install the waits projection. The registry keys its internal effect to
+     * its own context, so GoodJob owns the returned disposer: unloading this
+     * service unregisters the key even while the projection registry stays
+     * mounted.
+     * @param registry - the session-projection registry seam.
+     */
+    private attachProjections;
 }
