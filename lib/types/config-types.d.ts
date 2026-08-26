@@ -11,6 +11,14 @@ export interface Config {
     showWaits?: boolean;
     /** Show subagents in the operations view. */
     showSubagents?: boolean;
+    /** Show the durable Session goal in the operations view. */
+    showGoals?: boolean;
+    /** Show durable workflow runs in the operations view. */
+    showWorkflows?: boolean;
+    /** Show durable schedule reminders in the operations view. */
+    showSchedules?: boolean;
+    /** Show the Needs Attention summary derived from authoritative states. */
+    showAttention?: boolean;
     /** Show durable logical Job Groups in the operations view. */
     showGroups?: boolean;
     /** Expand groups with live members when the operations view opens. */

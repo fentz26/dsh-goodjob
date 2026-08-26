@@ -1,7 +1,7 @@
 import type { IApiClient, JobView, SessionId } from '@deepseek-ai/dsh-client-connection/client';
 import type { InjectFace, PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots';
 import type { Config } from '../config-types.ts';
-import type { GoodJobGroupView, GoodJobRuntimeTeamMember, GoodJobRuntimeTeamTask, GoodJobTeamMessageView, GoodJobWaitView } from '../types.ts';
+import type { GoodJobGroupView, GoodJobRuntimeTeamMember, GoodJobRuntimeTeamTask, GoodJobScheduleRecordView, GoodJobTeamMessageView, GoodJobWaitView, GoodJobWorkflowRunView } from '../types.ts';
 import { type AgentRow } from './AgentsList.tsx';
 import { NS } from './locales.ts';
 import type { GoodJobRpc } from './TeamsList.tsx';
@@ -17,11 +17,32 @@ export interface WorkspaceDomain {
     jobs: readonly OwnedJob[];
     groups: readonly GoodJobGroupView[];
     waits: readonly GoodJobWaitView[];
+    /** Durable Session goal from the upstream `goal` projection (null when none). */
+    goal: GoodJobGoalState | null;
+    /** Workflow runs folded from durable `tool-workflow/*` events. */
+    workflows: readonly GoodJobWorkflowRunView[];
+    /** Schedule records folded from durable `schedule/change` events. */
+    schedules: readonly GoodJobScheduleRecordView[];
     teamAvailable: boolean;
     teamLive: boolean;
     teamMembers: readonly GoodJobRuntimeTeamMember[];
     tasks: readonly GoodJobRuntimeTeamTask[];
     messages: readonly GoodJobTeamMessageView[];
+}
+/** The upstream `goal` projection's whole value, read structurally. */
+export interface GoodJobGoalState {
+    id?: string;
+    revision?: number;
+    objective?: string;
+    phase?: 'active' | 'paused' | 'blocked' | 'complete';
+    blockedReason?: {
+        code: string;
+        message: string;
+    };
+    maxGoalRounds?: number;
+    roundsStarted?: number;
+    createdAt?: number;
+    updatedAt?: number;
 }
 /** One presentation lens discovered from the DSH conversation-view registry. */
 export interface WorkspaceSessionView {

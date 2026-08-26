@@ -144,6 +144,74 @@ export interface GoodJobTeamsProjection {
   teams: readonly GoodJobTeamView[]
 }
 
+/**
+ * Client-visible mirror of one durable workflow run, folded from
+ * `tool-workflow/*` Session events written by `@deepseek-ai/dsh-tool-workflow`.
+ * The events carry no timestamps, so this view never invents any: elapsed or
+ * wall-clock facts come only from fields upstream actually records.
+ */
+export interface GoodJobWorkflowRunView {
+  /** Stable workflow run identity from the owning tool. */
+  id: string
+  /** Display name recorded at run start. */
+  name: string
+  /** Run lifecycle derived only from authoritative terminal events. */
+  state: 'running' | 'completed' | 'cancelled' | 'error'
+  /** Terminal reason, present exactly when the run ended. */
+  stopReason?: 'completed' | 'cancelled' | 'error'
+  /** Members in publish order; outcomes fill in as they settle. */
+  members: readonly GoodJobWorkflowMemberView[]
+}
+
+/** One published workflow member (child Agent) of a run. */
+export interface GoodJobWorkflowMemberView {
+  /** Member sequence within the run. */
+  seq: number
+  /** Display label recorded when the member was published. */
+  label: string
+  /** Phase name when the caller grouped members into phases. */
+  phase?: string
+  /** Child Session published for this member. */
+  childId: string
+  /** Settlement outcome, absent while the member runs. */
+  outcome?: 'completed' | 'failed' | 'cancelled'
+}
+
+/** Whole-value projection of workflow runs folded from one Session log. */
+export interface GoodJobWorkflowsProjection {
+  /** Runs in first-started order. */
+  runs: readonly GoodJobWorkflowRunView[]
+}
+
+/**
+ * Client-visible mirror of one durable schedule record, folded from
+ * `schedule/change` Session events written by `@deepseek-ai/dsh-schedule`.
+ * Delivery state is deliberately not stored: it is derived at read time from
+ * the explicit absolute target and the current clock.
+ */
+export interface GoodJobScheduleRecordView {
+  /** Session-local stable reminder identity. */
+  id: string
+  /** Rule discriminator as authored upstream. */
+  kind: 'after' | 'at' | 'every'
+  /** Reminder content supplied at creation and delivered on dispatch. */
+  prompt: string
+  /** RFC 3339 UTC absolute target (`at` and `every` rules). */
+  scheduledAt?: string
+  /** Relative delay in seconds (`after` rule). */
+  delayedSeconds?: number
+  /** Fixed interval in seconds (`every` rule). */
+  everySeconds?: number
+  /** Whether the record entered the durable dispatch history. */
+  dispatched: boolean
+}
+
+/** Whole-value projection of schedules folded from one Session log. */
+export interface GoodJobSchedulesProjection {
+  /** Active records in creation order. */
+  schedules: readonly GoodJobScheduleRecordView[]
+}
+
 /** Runtime-enriched Team member returned by the optional Team adapter. */
 export interface GoodJobRuntimeTeamMember {
   id: string
@@ -209,6 +277,10 @@ declare module '@deepseek-ai/dsh-session-projection/types' {
     'goodjob/groups': GoodJobGroupsProjection | null
     /** Durable Agent Teams history, present even when the service is absent. */
     'goodjob/teams': GoodJobTeamsProjection | null
+    /** Workflow runs folded from durable tool-workflow events. */
+    'goodjob/workflows': GoodJobWorkflowsProjection | null
+    /** Schedule records folded from durable schedule/change events. */
+    'goodjob/schedules': GoodJobSchedulesProjection | null
   }
 }
 
@@ -224,6 +296,8 @@ export interface GoodJobProjectionMap {
   'goodjob/waits': GoodJobWaitsProjection | null
   'goodjob/groups': GoodJobGroupsProjection | null
   'goodjob/teams': GoodJobTeamsProjection | null
+  'goodjob/workflows': GoodJobWorkflowsProjection | null
+  'goodjob/schedules': GoodJobSchedulesProjection | null
 }
 
 /** Structural face of the session-projection registry GoodJob registers into. */

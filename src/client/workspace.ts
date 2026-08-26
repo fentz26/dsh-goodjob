@@ -9,7 +9,8 @@
 
 /** Entity kinds that can occupy a GoodJob editor tab. */
 export type WorkspaceEntityKind =
-  | 'general' | 'agent' | 'job' | 'job-group' | 'wait' | 'task' | 'session-view'
+  | 'general' | 'agent' | 'job' | 'job-group' | 'wait' | 'task'
+  | 'goal' | 'workflow' | 'schedule' | 'session-view'
 
 /** Stable identity of one editor subject. */
 export type WorkspaceEntity =
@@ -19,6 +20,9 @@ export type WorkspaceEntity =
   | { kind: 'job-group'; groupId: string }
   | { kind: 'wait'; waitId: string }
   | { kind: 'task'; taskId: string }
+  | { kind: 'goal' }
+  | { kind: 'workflow'; workflowId: string }
+  | { kind: 'schedule'; scheduleId: string }
   | { kind: 'session-view'; sessionId: string; viewId: string }
 
 /** Stable client identity for deduplication and persistence. */
@@ -30,6 +34,9 @@ export function entityKey(entity: WorkspaceEntity): string {
     case 'job-group': return `group:${entity.groupId}`
     case 'wait': return `wait:${entity.waitId}`
     case 'task': return `task:${entity.taskId}`
+    case 'goal': return 'goal'
+    case 'workflow': return `workflow:${entity.workflowId}`
+    case 'schedule': return `schedule:${entity.scheduleId}`
     case 'session-view': return `view:${entity.sessionId}:${entity.viewId}`
   }
 }
@@ -205,6 +212,7 @@ export function restoreWorkspace(raw: string | null): WorkspaceState | undefined
 function isWorkspaceEntityKind(value: unknown): value is WorkspaceEntityKind {
   return value === 'general' || value === 'agent' || value === 'job'
     || value === 'job-group' || value === 'wait' || value === 'task'
+    || value === 'goal' || value === 'workflow' || value === 'schedule'
     || value === 'session-view'
 }
 
@@ -214,11 +222,14 @@ function isWorkspaceEntity(value: unknown): value is WorkspaceEntity {
   if (!isWorkspaceEntityKind(candidate.kind)) return false
   switch (candidate.kind) {
     case 'general': return true
+    case 'goal': return true
     case 'agent': return typeof candidate.sessionId === 'string'
     case 'job': return typeof candidate.sessionId === 'string' && typeof candidate.jobId === 'string'
     case 'job-group': return typeof candidate.groupId === 'string'
     case 'wait': return typeof candidate.waitId === 'string'
     case 'task': return typeof candidate.taskId === 'string'
+    case 'workflow': return typeof candidate.workflowId === 'string'
+    case 'schedule': return typeof candidate.scheduleId === 'string'
     case 'session-view': return typeof candidate.sessionId === 'string'
       && typeof candidate.viewId === 'string'
   }

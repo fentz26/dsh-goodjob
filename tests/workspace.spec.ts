@@ -31,6 +31,26 @@ describe('workspace state', () => {
     expect(state.panes[0]?.activeKey).toBe('agent:agent-1')
   })
 
+  it('opens and restores goal, workflow, and schedule entities by address only', () => {
+    const goal = { kind: 'goal' } as const
+    const workflow = { kind: 'workflow', workflowId: 'wf-1' } as const
+    const schedule = { kind: 'schedule', scheduleId: 's-9' } as const
+    let state = openEntity(initialWorkspaceState(), goal)
+    state = openEntity(state, workflow)
+    state = openEntity(state, schedule)
+    expect(state.panes[0]?.tabs.map(entityKey)).toEqual(['general', 'goal', 'workflow:wf-1', 'schedule:s-9'])
+    expect(entityKey(goal)).toBe('goal')
+    // Round-trip through JSON keeps only the entity address.
+    const restored = restoreWorkspace(JSON.stringify(state))
+    expect(restored).toEqual(state)
+    // Unknown entity kinds from newer builds are dropped, not guessed.
+    const mixed = openEntity(initialWorkspaceState(), { kind: 'agent', sessionId: 'a1' })
+    const stale = JSON.stringify({ ...state, panes: [{ id: 'pane-9', tabs: [...state.panes[0]!.tabs.filter(tab => entityKey(tab) !== 'schedule:s-9'), { kind: 'artifact' }], activeKey: 'goal' }] } as never)
+    const recovered = restoreWorkspace(stale)
+    expect(recovered?.panes[0]?.tabs.map(entityKey)).toEqual(['general', 'goal', 'workflow:wf-1'])
+    void mixed
+  })
+
   it('supports four panes, independent active tabs, moves, and pane closure', () => {
     let state = openEntity(initialWorkspaceState(), { kind: 'job', sessionId: 'lead', jobId: 'build' })
     state = openToSide(state, { kind: 'agent', sessionId: 'review' }, 'vertical')

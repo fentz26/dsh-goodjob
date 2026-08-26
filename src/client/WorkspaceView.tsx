@@ -17,10 +17,13 @@ import type {
   GoodJobOperationsSnapshot,
   GoodJobRuntimeTeamMember,
   GoodJobRuntimeTeamTask,
+  GoodJobScheduleRecordView,
   GoodJobTeamMessageView,
   GoodJobWaitView,
+  GoodJobWorkflowRunView,
 } from '../types.ts'
 import { toAgentRow, type AgentRow } from './AgentsList.tsx'
+import { deriveAttention, type AttentionItem } from './attention.ts'
 import { NS } from './locales.ts'
 import type { GoodJobRpc } from './TeamsList.tsx'
 import {
@@ -53,11 +56,30 @@ export interface WorkspaceDomain {
   jobs: readonly OwnedJob[]
   groups: readonly GoodJobGroupView[]
   waits: readonly GoodJobWaitView[]
+  /** Durable Session goal from the upstream `goal` projection (null when none). */
+  goal: GoodJobGoalState | null
+  /** Workflow runs folded from durable `tool-workflow/*` events. */
+  workflows: readonly GoodJobWorkflowRunView[]
+  /** Schedule records folded from durable `schedule/change` events. */
+  schedules: readonly GoodJobScheduleRecordView[]
   teamAvailable: boolean
   teamLive: boolean
   teamMembers: readonly GoodJobRuntimeTeamMember[]
   tasks: readonly GoodJobRuntimeTeamTask[]
   messages: readonly GoodJobTeamMessageView[]
+}
+
+/** The upstream `goal` projection's whole value, read structurally. */
+export interface GoodJobGoalState {
+  id?: string
+  revision?: number
+  objective?: string
+  phase?: 'active' | 'paused' | 'blocked' | 'complete'
+  blockedReason?: { code: string; message: string }
+  maxGoalRounds?: number
+  roundsStarted?: number
+  createdAt?: number
+  updatedAt?: number
 }
 
 /** One presentation lens discovered from the DSH conversation-view registry. */
@@ -132,6 +154,9 @@ export function WorkspaceView(props: WorkspaceViewProps) {
   const jobsBySession = useSessionsTyped(state => state.jobsBySession) ?? NO_JOBS
   const catalogs = useSessionsTyped(state => state.subagentsByParent) ?? NO_CATALOG
   const waits = (useProjection('goodjob/waits') as { waits?: readonly GoodJobWaitView[] } | undefined)?.waits ?? []
+  const goal = (useProjection('goal') as GoodJobGoalState | null | undefined) ?? null
+  const workflows = ((useProjection('goodjob/workflows') as { runs?: readonly GoodJobWorkflowRunView[] } | undefined)?.runs ?? []) as readonly GoodJobWorkflowRunView[]
+  const schedules = ((useProjection('goodjob/schedules') as { schedules?: readonly GoodJobScheduleRecordView[] } | undefined)?.schedules ?? []) as readonly GoodJobScheduleRecordView[]
   const groups = ((useProjection('goodjob/groups') as { groups?: readonly GoodJobGroupView[] } | undefined)?.groups ?? [])
     .filter(group => group.ownerSessionId === sessionId)
   const teamProjection = (useProjection('goodjob/teams') as {
@@ -172,6 +197,9 @@ export function WorkspaceView(props: WorkspaceViewProps) {
     jobs,
     groups,
     waits,
+    goal,
+    workflows,
+    schedules,
     teamAvailable: operations?.team.available ?? false,
     teamLive: operations?.team.live ?? false,
     teamMembers: operations?.team.members ?? [],
@@ -293,6 +321,15 @@ function Explorer(props: ExplorerProps) {
     .filter(row => matches(`${row.job.kind} ${row.job.label} ${row.job.id}`))
   const groups = props.domain.groups.filter(group => matches(`${group.label} ${group.id}`))
   const waits = props.domain.waits.filter(wait => matches(wait.id))
+  const goals = props.config.showGoals && props.domain.goal?.objective !== undefined
+    ? [{ id: props.domain.goal.id ?? 'goal', objective: props.domain.goal.objective! }].filter(goal => matches(`${goal.objective} ${goal.id}`))
+    : []
+  const workflows = (props.domain.workflows ?? [])
+    .filter(run => props.config.showWorkflows)
+    .filter(run => matches(`${run.name} ${run.id}`))
+  const schedules = (props.domain.schedules ?? [])
+    .filter(item => props.config.showSchedules)
+    .filter(item => matches(`${item.prompt} ${item.id}`))
   const tasks = props.config.showTeamTasks
     ? props.domain.tasks
       .filter(task => props.config.showCompletedTasks || task.status !== 'completed')
@@ -333,6 +370,51 @@ function Explorer(props: ExplorerProps) {
         {props.config.showWaits ? (
           <ExplorerSection label="Waits" kind="wait" collapsed={props.collapsed} onToggle={props.onToggle}>
             {waits.map(wait => <ExplorerRow key={wait.id} label={wait.id} state={wait.status} entity={{ kind: 'wait', waitId: wait.id }} activeKeys={props.activeKeys} onOpen={props.onOpen} />)}
+          </ExplorerSection>
+        ) : null}
+        {props.config.showGoals && props.domain.goal?.objective !== undefined ? (
+          <ExplorerSection label="Goals" kind="goal" collapsed={props.collapsed} onToggle={props.onToggle}>
+            {goals.map(goal => (
+              <ExplorerRow
+                key={goal.id}
+                label={goal.objective}
+                state={props.domain.goal?.phase ?? 'active'}
+                entity={{ kind: 'goal' }}
+                activeKeys={props.activeKeys}
+                onOpen={props.onOpen}
+              />
+            ))}
+          </ExplorerSection>
+        ) : null}
+        {props.config.showWorkflows ? (
+          <ExplorerSection label="Workflows" kind="workflow" collapsed={props.collapsed} onToggle={props.onToggle}>
+            {workflows.map(run => (
+              <ExplorerRow
+                key={run.id}
+                label={run.name}
+                state={run.state === 'completed' ? 'completed' : run.state}
+                entity={{ kind: 'workflow', workflowId: run.id }}
+                activeKeys={props.activeKeys}
+                onOpen={props.onOpen}
+              />
+            ))}
+          </ExplorerSection>
+        ) : null}
+        {props.config.showSchedules ? (
+          <ExplorerSection label="Schedules" kind="schedule" collapsed={props.collapsed} onToggle={props.onToggle}>
+            {schedules.map(item => {
+              const overdue = item.kind !== 'after' && !item.dispatched && item.scheduledAt !== undefined && Date.parse(item.scheduledAt) <= Date.now()
+              return (
+                <ExplorerRow
+                  key={item.id}
+                  label={item.prompt}
+                  state={item.dispatched ? 'dispatched' : overdue ? 'overdue' : 'scheduled'}
+                  entity={{ kind: 'schedule', scheduleId: item.id }}
+                  activeKeys={props.activeKeys}
+                  onOpen={props.onOpen}
+                />
+              )
+            })}
           </ExplorerSection>
         ) : null}
         {props.config.showTeams && props.domain.teamAvailable && props.config.showTeamTasks ? (
@@ -465,6 +547,18 @@ function EntityEditor(props: EntityEditorProps) {
       const task = domain.tasks.find(candidate => candidate.id === entity.taskId)
       return task === undefined ? <UnavailableEditor entity={entity} /> : <TaskEditor {...props} task={task} />
     }
+    case 'goal':
+      return domain.goal?.objective === undefined
+        ? <UnavailableEditor entity={entity} />
+        : <GoalEditor {...props} goal={domain.goal} />
+    case 'workflow': {
+      const run = (domain.workflows ?? []).find(candidate => candidate.id === entity.workflowId)
+      return run === undefined ? <UnavailableEditor entity={entity} /> : <WorkflowEditor {...props} run={run} />
+    }
+    case 'schedule': {
+      const item = (domain.schedules ?? []).find(candidate => candidate.id === entity.scheduleId)
+      return item === undefined ? <UnavailableEditor entity={entity} /> : <ScheduleEditor {...props} item={item} />
+    }
     case 'session-view': return <SessionViewEditor {...props} />
   }
 }
@@ -499,10 +593,31 @@ function GeneralEditor(props: EntityEditorProps) {
   const runningJobs = domain.jobs.filter(row => isLive(row.job)).length
   const waiting = domain.waits.filter(wait => wait.status === 'pending').length
   const activeTasks = domain.tasks.filter(task => task.status === 'in_progress').length
-  const attention = [
-    ...domain.jobs.filter(row => row.job.status === 'failed').map(row => ({ key: `job:${row.sessionId}:${row.job.id}`, label: `${row.job.label} failed`, entity: { kind: 'job', sessionId: row.sessionId, jobId: String(row.job.id) } as const })),
-    ...domain.tasks.filter(task => taskState(task) === 'blocked').map(task => ({ key: `task:${task.id}`, label: `${task.subject} is blocked`, entity: { kind: 'task', taskId: task.id } as const })),
-  ]
+  // One deterministic derivation feeds Needs Attention: the same blocker
+  // appears exactly once regardless of how many sections could express it.
+  const attention = deriveAttention({
+    goal: config.showGoals ? domain.goal : null,
+    jobsBySession: Object.fromEntries(domain.jobs.map(row => [row.sessionId, [row.job]])),
+    tasks: domain.tasks.map(task => ({
+      id: task.id,
+      subject: task.subject,
+      status: task.status,
+      ownerId: task.ownerName,
+      blockedBy: [...task.blockedBy],
+    })),
+    schedules: domain.schedules,
+    teamUnavailable: !domain.teamAvailable || !config.showTeams,
+    nowMs: Date.now(),
+  })
+  const attentionEntities = new Map<string, WorkspaceEntity>()
+  for (const item of attention) {
+    const target = item.target
+    if (target.kind === 'job') attentionEntities.set(item.id, { kind: 'job', sessionId: target.sessionId, jobId: target.jobId })
+    else if (target.kind === 'goal') attentionEntities.set(item.id, { kind: 'goal' })
+    else if (target.kind === 'wait') attentionEntities.set(item.id, { kind: 'wait', waitId: target.waitId })
+    else if (target.kind === 'task') attentionEntities.set(item.id, { kind: 'task', taskId: target.taskId })
+    else attentionEntities.set(item.id, { kind: 'schedule', scheduleId: target.scheduleId })
+  }
   const activities = activityEntries(domain).slice(0, 30)
   return (
     <>
@@ -513,17 +628,36 @@ function GeneralEditor(props: EntityEditorProps) {
         <Metric value={`${waiting} waiting / ${domain.waits.length - waiting} settled`} label="Waits" />
         <Metric value={`${activeTasks} in progress / ${domain.tasks.filter(task => taskState(task) === 'blocked').length} blocked`} label="Tasks" />
       </div>
-      <section className="gj-section">
-        <h3 className="gj-sectionTitle">Attention</h3>
-        {attention.length === 0 && (!config.showTeams || domain.teamAvailable)
-          ? <p className="gj-quiet">No failed Jobs or blocked tasks.</p>
-          : (
-            <ul className="gj-list">
-              {attention.map(item => <li key={item.key} className="gj-listRow gj-attention"><button type="button" className="gj-linkButton gj-rowMain" onClick={() => { onOpen(item.entity) }}>{item.label}</button></li>)}
-              {config.showTeams && !domain.teamAvailable ? <li className="gj-listRow gj-warning">Agent Teams adapter unavailable; Team tabs and controls are hidden.</li> : null}
-            </ul>
-          )}
-      </section>
+      {config.showGoals && domain.goal?.objective !== undefined ? (
+        <section className="gj-section">
+          <h3 className="gj-sectionTitle">Objectives</h3>
+          <ul className="gj-list">
+            <li className="gj-listRow gj-attention">
+              <button type="button" className="gj-linkButton gj-rowMain" onClick={() => { onOpen({ kind: 'goal' }) }}>{domain.goal.objective}</button>
+              <span className="gj-badge">{domain.goal.phase ?? 'active'}</span>
+              <span className="gj-meta">{`round ${domain.goal.roundsStarted ?? 0}`}</span>
+            </li>
+          </ul>
+        </section>
+      ) : null}
+      {config.showAttention ? (
+        <section className="gj-section">
+          <h3 className="gj-sectionTitle">Needs Attention</h3>
+          {attention.length === 0 && (!config.showTeams || domain.teamAvailable)
+            ? <p className="gj-quiet">Nothing requires human attention.</p>
+            : (
+              <ul className="gj-list">
+                {attention.map(item => (
+                  <li key={item.id} className="gj-listRow gj-attention">
+                    <span className="gj-badge" data-severity={item.severity}>{item.reason}</span>
+                    <button type="button" className="gj-linkButton gj-rowMain" onClick={() => { onOpen(attentionEntities.get(item.id)!) }}>{item.explanation}</button>
+                  </li>
+                ))}
+                {config.showTeams && !domain.teamAvailable ? <li className="gj-listRow gj-warning">Agent Teams adapter unavailable; Team tabs and controls are hidden.</li> : null}
+              </ul>
+            )}
+        </section>
+      ) : null}
       {config.showActivityFeed ? (
         <section className="gj-section">
           <h3 className="gj-sectionTitle">Activity</h3>
@@ -617,6 +751,7 @@ function AgentEditor(props: EntityEditorProps & { agent: AgentRow }) {
         actions={<><SessionViewActions {...props} agent={agent} /><AgentControls {...props} agent={agent} teamMember={teamMember} /></>}
       />
       {agent.model === undefined ? null : <dl className="gj-fields"><dt>Provider/model</dt><dd>{agent.model}</dd></dl>}
+      <WhyIdle agent={agent} domain={domain} onOpen={props.onOpen} />
       <section className="gj-section">
         <h3 className="gj-sectionTitle">Transcript / Activity</h3>
         <p className="gj-quiet">Session messages and tool calls remain in the DSH conversation. Open Session navigates to that authoritative transcript.</p>
@@ -634,6 +769,30 @@ function AgentEditor(props: EntityEditorProps & { agent: AgentRow }) {
         </section>
       ) : null}
     </>
+  )
+}
+
+/** Deterministic "Why is this agent idle?" panel: graph-derived only. */
+function WhyIdle(props: { agent: AgentRow; domain: WorkspaceDomain; onOpen(entity: WorkspaceEntity): void }) {
+  const reasons: React.ReactNode[] = []
+  if (props.agent.activity !== 'running') {
+    const pending = props.domain.waits.filter(wait => wait.sessionId === props.agent.id && wait.status === 'pending')
+    for (const wait of pending) {
+      reasons.push(
+        <li key={`wait:${wait.id}`} className="gj-listRow">
+          <button type="button" className="gj-linkButton gj-rowMain" onClick={() => { props.onOpen({ kind: 'wait', waitId: wait.id }) }}>{`Waiting on ${wait.id}`}</button>
+          <span className="gj-meta">{`mode ${wait.mode} · ${wait.leaves.filter(leaf => leaf.result === undefined).length}/${wait.leaves.length} leaves unresolved`}</span>
+        </li>,
+      )
+    }
+  }
+  return (
+    <section className="gj-section">
+      <h3 className="gj-sectionTitle">Why idle?</h3>
+      {reasons.length === 0
+        ? <p className="gj-quiet">No authoritative blocker derives from current projections.</p>
+        : <ul className="gj-list" aria-label="Deterministic idle reasons">{reasons}</ul>}
+    </section>
   )
 }
 
@@ -924,6 +1083,81 @@ function TaskEditor(props: EntityEditorProps & { task: GoodJobRuntimeTeamTask })
   )
 }
 
+function GoalEditor(props: EntityEditorProps & { goal: GoodJobGoalState }) {
+  const goal = props.goal
+  if (goal.objective === undefined) return <UnavailableEditor entity={{ kind: 'goal' }} />
+  return (
+    <>
+      <EditorTitle title={goal.objective} subtitle={`Session goal${goal.id === undefined ? '' : ` ${goal.id}`} · revision ${goal.revision ?? '?'}`} status={goal.phase ?? 'active'} entity={{ kind: 'goal' }} onOpenSide={props.onOpenSide} />
+      {goal.blockedReason === undefined ? null : (
+        <section className="gj-section">
+          <h3 className="gj-sectionTitle">Blocked</h3>
+          <p className="gj-warning">{`${goal.blockedReason.code}: ${goal.blockedReason.message}`}</p>
+        </section>
+      )}
+      <dl className="gj-fields">
+        {goal.maxGoalRounds === undefined ? null : <><dt>Round cap</dt><dd>{String(goal.maxGoalRounds)}</dd></>}
+        <dt>Rounds admitted</dt><dd>{String(goal.roundsStarted ?? 0)}</dd>
+        {goal.createdAt === undefined ? null : <><dt>Created</dt><dd><time dateTime={new Date(goal.createdAt).toISOString()}>{new Date(goal.createdAt).toLocaleString()}</time></dd></>}
+        {goal.updatedAt === undefined ? null : <><dt>Updated</dt><dd><time dateTime={new Date(goal.updatedAt).toISOString()}>{new Date(goal.updatedAt).toLocaleString()}</time></dd></>}
+      </dl>
+    </>
+  )
+}
+
+function WorkflowEditor(props: EntityEditorProps & { run: GoodJobWorkflowRunView }) {
+  const run = props.run
+  // Objective settlement facts only: never a percentage the events did not carry.
+  const settled = run.members.filter(member => member.outcome !== undefined)
+  const failed = run.members.filter(member => member.outcome === 'failed').length
+  return (
+    <>
+      <EditorTitle title={run.name} subtitle={`Workflow run ${run.id}`} status={run.state} entity={{ kind: 'workflow', workflowId: run.id }} onOpenSide={props.onOpenSide} />
+      <dl className="gj-fields">
+        <dt>Members</dt><dd>{`${settled.length}/${run.members.length} settled`}</dd>
+        {failed > 0 ? <><dt>Failed members</dt><dd>{String(failed)}</dd></> : null}
+        {run.stopReason === undefined ? null : <><dt>Stop reason</dt><dd>{run.stopReason}</dd></>}
+      </dl>
+      <section className="gj-section">
+        <h3 className="gj-sectionTitle">Members</h3>
+        {run.members.length === 0 ? <p className="gj-quiet">No member published yet.</p> : (
+          <ul className="gj-list" aria-label="Workflow members">
+            {run.members.map(member => {
+              const child = leadAndAgents(props.domain).find(candidate => candidate.id === member.childId)
+              return (
+                <li key={`${run.id}:${member.seq}`} className="gj-listRow">
+                  <span className="gj-stateDot" data-state={member.outcome ?? 'running'} />
+                  <span>{member.seq}. {member.label}{member.phase === undefined ? '' : ` (${member.phase})`}</span>
+                  <button type="button" className="gj-linkButton gj-rowMain" onClick={() => { props.onOpen({ kind: 'agent', sessionId: member.childId }) }}>{child?.label ?? member.childId}</button>
+                  <span className="gj-meta">{member.outcome ?? 'running'}</span>
+                </li>
+              )
+            })}
+          </ul>
+        )}
+      </section>
+      <p className="gj-quiet">Members and outcomes come from durable `tool-workflow` Session events; timing fields are not recorded by the source events.</p>
+    </>
+  )
+}
+
+function ScheduleEditor(props: EntityEditorProps & { item: GoodJobScheduleRecordView }) {
+  const item = props.item
+  const overdue = item.kind !== 'after' && !item.dispatched && item.scheduledAt !== undefined && Date.parse(item.scheduledAt) <= Date.now()
+  const state = item.dispatched ? 'dispatched' : overdue ? 'overdue' : 'scheduled'
+  return (
+    <>
+      <EditorTitle title={item.prompt} subtitle={`Schedule ${item.id}`} status={state} entity={{ kind: 'schedule', scheduleId: item.id }} onOpenSide={props.onOpenSide} />
+      <dl className="gj-fields">
+        <dt>Rule</dt><dd>{item.kind === 'after' ? `${item.delayedSeconds ?? '?'} seconds after creation` : item.kind === 'every' ? `every ${item.everySeconds ?? '?'} seconds` : 'at an absolute time'}</dd>
+        {item.scheduledAt === undefined ? null : <><dt>Next target</dt><dd><time dateTime={new Date(item.scheduledAt).toISOString()}>{new Date(item.scheduledAt).toLocaleString()}</time></dd></>}
+        <dt>Delivery</dt><dd>session-local (the original session must be live)</dd>
+      </dl>
+      <p className="gj-quiet">Records fold from durable `schedule/change` Session events; GoodJob projects them read-only and owns no scheduling authority.</p>
+    </>
+  )
+}
+
 function SessionViewEditor(props: EntityEditorProps) {
   if (props.entity.kind !== 'session-view') return null
   const entity = props.entity
@@ -983,6 +1217,9 @@ function entityLabel(entity: WorkspaceEntity, domain: WorkspaceDomain): string {
     case 'job-group': return domain.groups.find(group => String(group.id) === entity.groupId)?.label ?? entity.groupId
     case 'wait': return entity.waitId
     case 'task': return domain.tasks.find(task => task.id === entity.taskId)?.subject ?? entity.taskId
+    case 'goal': return domain.goal?.objective ?? 'Goal'
+    case 'workflow': return (domain.workflows ?? []).find(run => run.id === entity.workflowId)?.name ?? entity.workflowId
+    case 'schedule': return (domain.schedules ?? []).find(item => item.id === entity.scheduleId)?.prompt ?? entity.scheduleId
     case 'session-view': {
       const agent = leadAndAgents(domain).find(candidate => candidate.id === entity.sessionId)
       return `${agent?.label ?? entity.sessionId} / ${entity.viewId}`

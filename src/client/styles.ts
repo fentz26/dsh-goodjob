@@ -604,6 +604,10 @@ export const STYLES: string = `.gj-root {
   white-space: nowrap;
 }
 
+.gj-badge[data-severity='error'] { color: var(--dsw-danger, #c0392b); border-color: currentColor; }
+.gj-badge[data-severity='warning'] { color: var(--dsw-warning, #b07d10); border-color: currentColor; }
+.gj-badge[data-severity='info'] { color: var(--dsw-text-muted); }
+
 .gj-section { margin-top: 16px; }
 .gj-sectionTitle { margin: 0 0 7px; font-size: 11px; text-transform: uppercase; letter-spacing: .05em; color: var(--dsw-text-muted); }
 

@@ -19,14 +19,18 @@ import { z as zod } from 'zod'
 import type {} from '@deepseek-ai/dsh-session-projection'
 import { applyWaitEvent } from './fold.ts'
 import { applyGroupEvent, registerGroupTool } from './groups.ts'
+import { applyScheduleEvent } from './schedules.ts'
 import { registerGoodJobRpc } from './rpc.ts'
 import { applyTeamEvent, registerTeamTaskWaitProvider } from './teams.ts'
+import { applyWorkflowEvent } from './workflows.ts'
 import { detectSeams, missingSeamDiagnostics } from './detect.ts'
 import type { DetectedSeams } from './detect.ts'
 import type {
   GoodJobGroupsProjection,
+  GoodJobSchedulesProjection,
   GoodJobTeamsProjection,
   GoodJobWaitsProjection,
+  GoodJobWorkflowsProjection,
   ProjectionRegistry,
 } from './types.ts'
 
@@ -39,6 +43,8 @@ export { ConfigSchema, DEFAULTS }
 const WAITS_STATE_VERSION = 1
 const GROUPS_STATE_VERSION = 1
 const TEAMS_STATE_VERSION = 1
+const WORKFLOWS_STATE_VERSION = 1
+const SCHEDULES_STATE_VERSION = 1
 
 /** Wire schema validating the whole projection value on both sides. */
 const goodJobWaitsSchema: zod.ZodType<GoodJobWaitsProjection | null> = zod.union([
@@ -114,6 +120,42 @@ const goodJobTeamsSchema = zod.union([
   }),
   zod.null(),
 ]) as zod.ZodType<GoodJobTeamsProjection | null>
+
+const workflowMemberSchema = zod.object({
+  seq: zod.number().int(),
+  label: zod.string(),
+  phase: zod.string().optional(),
+  childId: zod.string(),
+  outcome: zod.enum(['completed', 'failed', 'cancelled']).optional(),
+})
+
+const goodJobWorkflowsSchema = zod.union([
+  zod.object({
+    runs: zod.array(zod.object({
+      id: zod.string(),
+      name: zod.string(),
+      state: zod.enum(['running', 'completed', 'cancelled', 'error']),
+      stopReason: zod.enum(['completed', 'cancelled', 'error']).optional(),
+      members: zod.array(workflowMemberSchema),
+    })),
+  }),
+  zod.null(),
+]) as unknown as zod.ZodType<GoodJobWorkflowsProjection | null>
+
+const scheduleRecordSchema = zod.object({
+  id: zod.string(),
+  kind: zod.enum(['after', 'at', 'every']),
+  prompt: zod.string(),
+  scheduledAt: zod.string().optional(),
+  delayedSeconds: zod.number().int().optional(),
+  everySeconds: zod.number().int().optional(),
+  dispatched: zod.boolean(),
+})
+
+const goodJobSchedulesSchema = zod.union([
+  zod.object({ schedules: zod.array(scheduleRecordSchema) }),
+  zod.null(),
+]) as unknown as zod.ZodType<GoodJobSchedulesProjection | null>
 
 /**
  * The GoodJob operations service. The class is the bundle row's mount point:
@@ -233,6 +275,30 @@ export default class GoodJobService extends Service {
       stateVersion: TEAMS_STATE_VERSION,
       wire: {
         viewSchema: goodJobTeamsSchema,
+        view: state => state,
+      },
+    }))
+    this.lateDisposers.add(registry.register({
+      key: 'goodjob/workflows',
+      stateSchema: goodJobWorkflowsSchema,
+      init: () => null,
+      // Durable tool-workflow events fold deterministically; unknown types are
+      // inert so future upstream additions replay as no-ops here.
+      apply: (state, event) => applyWorkflowEvent(state, event),
+      stateVersion: WORKFLOWS_STATE_VERSION,
+      wire: {
+        viewSchema: goodJobWorkflowsSchema,
+        view: state => state,
+      },
+    }))
+    this.lateDisposers.add(registry.register({
+      key: 'goodjob/schedules',
+      stateSchema: goodJobSchedulesSchema,
+      init: () => null,
+      apply: (state, event) => applyScheduleEvent(state, event),
+      stateVersion: SCHEDULES_STATE_VERSION,
+      wire: {
+        viewSchema: goodJobSchedulesSchema,
         view: state => state,
       },
     }))
