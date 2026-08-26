@@ -62,11 +62,15 @@ describe('GoodJob host lifecycle', () => {
     return ctx
   }
 
-  it('registers the waits projection and settings namespace at load', async () => {
+  it('registers all projections and the settings namespace at load', async () => {
     await mount()
     expect(projections.register).toHaveBeenCalledWith(expect.objectContaining({ key: 'goodjob/waits' }))
+    expect(projections.register).toHaveBeenCalledWith(expect.objectContaining({ key: 'goodjob/groups' }))
+    expect(projections.register).toHaveBeenCalledWith(expect.objectContaining({ key: 'goodjob/teams' }))
     expect(settings.register).toHaveBeenCalledWith('goodjob', expect.anything())
     expect(projections.registered.has('goodjob/waits')).toBe(true)
+    expect(projections.registered.has('goodjob/groups')).toBe(true)
+    expect(projections.registered.has('goodjob/teams')).toBe(true)
     expect(settings.registered.has('goodjob')).toBe(true)
   })
 
@@ -83,6 +87,8 @@ describe('GoodJob host lifecycle', () => {
     ctx.provide('settings', settings)
     await ctx.plugin(GoodJobService)
     expect(projections.registered.has('goodjob/waits')).toBe(true)
+    expect(projections.registered.has('goodjob/groups')).toBe(true)
+    expect(projections.registered.has('goodjob/teams')).toBe(true)
     expect(settings.registered.has('goodjob')).toBe(true)
   })
 

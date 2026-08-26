@@ -12,6 +12,16 @@ export interface Config {
   showWaits?: boolean
   /** Show subagents in the operations view. */
   showSubagents?: boolean
+  /** Show durable logical Job Groups in the operations view. */
+  showGroups?: boolean
+  /** Expand groups with live members when the operations view opens. */
+  autoExpandActiveGroups?: boolean
+  /** Enable the optional Agent Teams section and controls. */
+  showTeams?: boolean
+  /** Show the durable Agent Teams mailbox. */
+  showTeamMailbox?: boolean
+  /** Show Agent Teams tasks and reassignment controls. */
+  showTeamTasks?: boolean
   /** Auto-follow live job output while a detail view is open. */
   autoFollowOutput?: boolean
 }
@@ -21,5 +31,10 @@ export const DEFAULTS: Required<Config> = {
   showJobs: true,
   showWaits: true,
   showSubagents: true,
+  showGroups: true,
+  autoExpandActiveGroups: true,
+  showTeams: true,
+  showTeamMailbox: true,
+  showTeamTasks: true,
   autoFollowOutput: true,
 }

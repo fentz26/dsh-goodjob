@@ -32,6 +32,8 @@ const undo = process.argv.includes('--undo')
 const LINKED = {
   '@deepseek-ai/cordis': 'vendor/cordis',
   '@deepseek-ai/schemastery': 'vendor/schemastery',
+  '@deepseek-ai/dsh-agent': 'packages/core/agent',
+  '@deepseek-ai/dsh-brand': 'packages/util/brand',
   '@deepseek-ai/dsh-api-remotes': 'packages/api/remotes',
   '@deepseek-ai/dsh-host-apiproxy': 'packages/host/apiproxy',
   '@deepseek-ai/dsh-client-connection': 'packages/client/connection',
@@ -40,17 +42,23 @@ const LINKED = {
   '@deepseek-ai/dsh-client-ui-conversation': 'packages/client/ui-conversation',
   '@deepseek-ai/dsh-client-ui-settings-plugins': 'packages/client/ui-settings-plugins',
   '@deepseek-ai/dsh-client-ui-slots': 'packages/client/ui-slots',
+  '@deepseek-ai/dsh-jobs': 'packages/jobs/jobs',
+  '@deepseek-ai/dsh-session': 'packages/core/session',
   '@deepseek-ai/dsh-session-projection': 'packages/session/session-projection',
+  '@deepseek-ai/dsh-tools': 'packages/core/tools',
+  '@deepseek-ai/dsh-wait': 'packages/wait/wait',
 }
 
 /** Type-outlet subpaths that need their own declaration mapping. */
 const SUBPATH_TYPES = {
+  '@deepseek-ai/dsh-session/types':
+    'packages/core/session/lib/types/types.d.ts',
   '@deepseek-ai/dsh-session-projection/types':
     'packages/session/session-projection/lib/types/types.d.ts',
 }
 
 /** npm packages that only exist for local development. */
-const DEV_NPM = ['@types/node', '@types/react', 'react', 'tsdown', 'typescript', 'vitest', 'zod']
+const DEV_NPM = ['@testing-library/dom', '@testing-library/react', '@types/node', '@types/react', 'jsdom', 'react', 'react-dom', 'tsdown', 'typescript', 'vitest', 'zod']
 
 if (!existsSync(dshHome) && !undo) {
   console.error(`setup-dev: DeepSeek Harness checkout not found at ${dshHome}`)
@@ -130,7 +138,7 @@ const manifestPath = join(root, 'package.json')
 const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'))
 manifest.devDependencies ??= {}
 for (const name of DEV_NPM) {
-  if (manifest.devDependencies[name] === undefined && !undo) {
+  if (manifest.devDependencies[name] === undefined && manifest.dependencies?.[name] === undefined && !undo) {
     console.error(`setup-dev: ${name} missing from devDependencies; add it to the committed manifest`)
     process.exit(1)
   }

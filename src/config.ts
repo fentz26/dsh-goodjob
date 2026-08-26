@@ -15,5 +15,10 @@ export const ConfigSchema: z<Config> = z.object({
   showJobs: z.boolean().default(DEFAULTS.showJobs),
   showWaits: z.boolean().default(DEFAULTS.showWaits),
   showSubagents: z.boolean().default(DEFAULTS.showSubagents),
+  showGroups: z.boolean().default(DEFAULTS.showGroups),
+  autoExpandActiveGroups: z.boolean().default(DEFAULTS.autoExpandActiveGroups),
+  showTeams: z.boolean().default(DEFAULTS.showTeams),
+  showTeamMailbox: z.boolean().default(DEFAULTS.showTeamMailbox),
+  showTeamTasks: z.boolean().default(DEFAULTS.showTeamTasks),
   autoFollowOutput: z.boolean().default(DEFAULTS.autoFollowOutput),
 })

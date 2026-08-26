@@ -47,9 +47,13 @@ export function apply(ctx: ClientContext, config: Config = {}): void {
     showJobs: config.showJobs ?? DEFAULTS.showJobs,
     showWaits: config.showWaits ?? DEFAULTS.showWaits,
     showSubagents: config.showSubagents ?? DEFAULTS.showSubagents,
+    showGroups: config.showGroups ?? DEFAULTS.showGroups,
+    autoExpandActiveGroups: config.autoExpandActiveGroups ?? DEFAULTS.autoExpandActiveGroups,
+    showTeams: config.showTeams ?? DEFAULTS.showTeams,
+    showTeamMailbox: config.showTeamMailbox ?? DEFAULTS.showTeamMailbox,
+    showTeamTasks: config.showTeamTasks ?? DEFAULTS.showTeamTasks,
     autoFollowOutput: config.autoFollowOutput ?? DEFAULTS.autoFollowOutput,
   }
-  void resolved
   ctx.effect(() => {
     if (document.querySelector('style[data-plugin="dsh-goodjob"]') !== null) return () => {}
     const tag = document.createElement('style')
@@ -67,7 +71,14 @@ export function apply(ctx: ClientContext, config: Config = {}): void {
       order: 30,
       locale: NS,
       inject: (): OperationsInjected => ({
-        api: (ctx.get('connection') as unknown as { api: OperationsInjected['api'] }).api,
+        api: (ctx.get('connection') as unknown as {
+          api: OperationsInjected['api']
+          rpc: OperationsInjected['rpc']
+        }).api,
+        rpc: (ctx.get('connection') as unknown as {
+          rpc: OperationsInjected['rpc']
+        }).rpc,
+        config: resolved,
         refreshSubagents: parentSessionId => (sessionsFace(ctx)).refreshSubagents(parentSessionId),
         openChild: address => (sessionsFace(ctx)).openSubagent(address),
       }),

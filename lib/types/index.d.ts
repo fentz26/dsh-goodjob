@@ -1,6 +1,6 @@
 /**
  * GoodJob host half: settings namespace, capability detection, and the
- * `goodjob/waits` session projection unit.
+ * GoodJob's durable projection and operations adapters.
  *
  * GoodJob owns no domain authority. Jobs reach the browser through the
  * existing `jobsBySession` mirror and the non-consuming observe RPC;
@@ -37,6 +37,9 @@ export default class GoodJobService extends Service {
     /** Whether each seam has been wired (immediately or late). */
     private settingsAttached;
     private projectionsAttached;
+    private groupToolAttached;
+    private teamTaskWaitAttached;
+    private rpcAttached;
     /** Disposers of seam registrations, drained by the seam-teardown effect. */
     private lateDisposers;
     /**
@@ -57,4 +60,6 @@ export default class GoodJobService extends Service {
      * @param registry - the session-projection registry seam.
      */
     private attachProjections;
+    /** Attach operational adapters once their owning services are composed. */
+    private attachRuntimeAdapters;
 }

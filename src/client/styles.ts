@@ -49,7 +49,7 @@ export const STYLES: string = `.gj-root {
 .gj-heading {
   margin: 4px 0 6px;
   font-size: 11px;
-  letter-spacing: 0.gj-06em;
+  letter-spacing: .06em;
   text-transform: uppercase;
   color: var(--dsw-text-muted);
 }
@@ -64,7 +64,12 @@ export const STYLES: string = `.gj-root {
 
 .gj-agents,
 .gj-jobs,
-.gj-waits {
+.gj-waits,
+.gj-groups,
+.gj-groupMembers,
+.gj-teams,
+.gj-teamTasks,
+.gj-mailbox {
   list-style: none;
   margin: 0;
   padding: 0;
@@ -102,6 +107,11 @@ export const STYLES: string = `.gj-root {
   color: var(--dsw-text-muted);
 }
 
+.gj-agentDepth {
+  color: var(--dsw-text-muted);
+  font-size: 10px;
+}
+
 .gj-agentActions {
   margin-left: auto;
   display: inline-flex;
@@ -119,7 +129,7 @@ export const STYLES: string = `.gj-root {
 }
 
 .gj-action:disabled {
-  opacity: 0.gj-5;
+  opacity: .5;
   cursor: default;
 }
 
@@ -196,6 +206,51 @@ export const STYLES: string = `.gj-root {
   font-size: 11px;
   white-space: pre-wrap;
   word-break: break-word;
+}
+
+/* Groups and Teams */
+
+.gj-groupRow,
+.gj-teamRow,
+.gj-teamTask,
+.gj-groupMember {
+  padding: 3px 0;
+}
+
+.gj-groupRow summary,
+.gj-groupMember,
+.gj-teamRow,
+.gj-teamTask {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.gj-groupLabel {
+  font-size: 12px;
+}
+
+.gj-groupCount {
+  margin-left: 6px;
+  color: var(--dsw-text-muted);
+  font-size: 10px;
+}
+
+.gj-groupMembers,
+.gj-teamTasks,
+.gj-mailbox {
+  margin-left: 14px;
+}
+
+.gj-mailbox {
+  color: var(--dsw-text-muted);
+  font-size: 11px;
+}
+
+.gj-error {
+  color: var(--dsw-danger, #c44);
+  font-size: 11px;
 }
 
 /* Waits */
@@ -286,6 +341,7 @@ export const css: Record<string, string> = {
   'action': 'gj-action',
   'agentActions': 'gj-agentActions',
   'agentDot': 'gj-agentDot',
+  'agentDepth': 'gj-agentDepth',
   'agentLabel': 'gj-agentLabel',
   'agentMode': 'gj-agentMode',
   'agentRow': 'gj-agentRow',
@@ -299,6 +355,13 @@ export const css: Record<string, string> = {
   'composerRow': 'gj-composerRow',
   'dispatched': 'gj-dispatched',
   'empty': 'gj-empty',
+  'error': 'gj-error',
+  'groupCount': 'gj-groupCount',
+  'groupLabel': 'gj-groupLabel',
+  'groupMember': 'gj-groupMember',
+  'groupMembers': 'gj-groupMembers',
+  'groupRow': 'gj-groupRow',
+  'groups': 'gj-groups',
   'heading': 'gj-heading',
   'jobDuration': 'gj-jobDuration',
   'jobLabel': 'gj-jobLabel',
@@ -312,11 +375,16 @@ export const css: Record<string, string> = {
   'leaves': 'gj-leaves',
   'liveCount': 'gj-liveCount',
   'menu': 'gj-menu',
+  'mailbox': 'gj-mailbox',
   'output': 'gj-output',
   'primary': 'gj-primary',
   'ready': 'gj-ready',
   'root': 'gj-root',
   'trigger': 'gj-trigger',
+  'teamRow': 'gj-teamRow',
+  'teamTask': 'gj-teamTask',
+  'teamTasks': 'gj-teamTasks',
+  'teams': 'gj-teams',
   'waitMode': 'gj-waitMode',
   'waitRow': 'gj-waitRow',
   'waitStatus': 'gj-waitStatus',

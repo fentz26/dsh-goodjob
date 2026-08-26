@@ -2,7 +2,7 @@
 
 **Background jobs, waits, and agent operations for [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness).**
 
-GoodJob is an out-of-tree DeepSeek Harness plugin (a *bundle*). It gives you one operations view over the background work your agents already do — Jobs, Waits, and Subagents — without creating any second authority, event bus, task board, or conversation surface. Everything you see is projected from the services that already own the data, and everything you click goes through the APIs those services already authorize.
+GoodJob is an out-of-tree DeepSeek Harness plugin (a *bundle*). It gives you one operations view over Jobs, durable Job Groups, Waits, recursive Subagents, and optional Agent Teams without creating a second scheduler, task board, event bus, or conversation surface. Execution remains owned by the DSH capability that started it.
 
 ```bash
 npx @deepseek-ai/dsh plugin --profile web add github:fentz26/dsh-goodjob
@@ -14,17 +14,28 @@ npx @deepseek-ai/dsh plugin --profile web add github:fentz26/dsh-goodjob
 
 ### Operations view (web profile)
 
-A `GoodJob` action in every session header opens a three-section panel:
+A `GoodJob` action in every session header opens one capability-aware panel:
 
-- **Subagents** — each direct child of the current session with its label, delivery mode (`continuable` / `one-shot`), and driver activity. Per row: **Open** (the existing child transcript — no duplicate session), **Message** (send an additional prompt through the existing continuable-prompt RPC; the host queues it FIFO), and **Interrupt** (explicit confirmation; ends only the current turn, the session stays continuable).
-- **Jobs** — the session's background jobs with live status and elapsed time. **Logs** expands one page of output fetched through the non-consuming `jobs.observe` API: reading logs never advances the model-facing cursor and causes zero model inference.
+- **Subagents** — every descendant with lineage depth, mode, activity, live model when available, and related Job ids. **Open**, **Message**, and **Interrupt** use the existing child transcript and subagent APIs; interruption ends only the current turn.
+- **Jobs** — the session's background jobs with live status, exact elapsed time, and independently observed output. Reading logs never advances the model-facing cursor.
+- **Job Groups** — durable Session-local labels over existing Job ids. A group shows exact member states and settled counts, never estimated progress. A Job may belong to several groups.
 - **Waits** — durable wait intents folded read-only from the `wait/change` Session events their owning capability logs: mode (`any`/`all`), per-leaf provider and settlement state, winning leaf for admitted races, and lifecycle (`waiting` → `ready` → `resumed`, or `cancelled`).
+- **Agent Team** — shown only when Agent Teams is composed. It projects the Team-owned roster, tasks, and mailbox, with Team Lead-authorized message, wake, interrupt, and revision-checked reassignment controls. Human messages are labeled `Human via GoodJob, authorized as Team Lead` in the recipient transcript.
 
 Opening the panel and reading anything in it never wakes an agent and never spends tokens.
 
 ### Settings → Plugins → GoodJob
 
-A card in the existing configurable-plugins tab edits four toggles (show jobs / subagents / waits, auto-follow job output) through the standard settings API, revision-checked. The plugin identity lives in Settings → Plugins → Plugin Inventory; repository metadata does not clutter the form.
+A card in the existing configurable-plugins tab controls visibility for Jobs, Groups, Waits, Subagents, and optional Team tasks/mailbox, plus active-group expansion and job-output following. Writes use the standard revision-checked settings API.
+
+### Model-facing Job Groups
+
+The single `job_group` tool keeps the model surface compact:
+
+- `create`, `add`, `remove`, `rename`, `delete`, and `list` mutate or inspect durable grouping metadata.
+- `wait` compiles the group's current Job ids into the existing `wait_create` semantics with `job` leaves and `any` or `all` mode.
+
+The tool accepts only Jobs already started through their owning producer, such as background Bash or subagent delegation. It does not launch, stop, kill, own, or reschedule work. Fan-out is the normal sequence of background starts followed by one group creation; fan-in is one group wait.
 
 ### Host half
 
@@ -32,7 +43,9 @@ The bundle row mounts one service that:
 
 1. registers the `goodjob` settings namespace,
 2. detects its required capability seams at load and prints actionable diagnostics when an installation lacks them, and
-3. installs the `goodjob/waits` session-projection unit — a pure fold over `wait/change` events — so wait state rides the existing projection feed to every browser observer.
+3. installs pure `goodjob/waits`, `goodjob/groups`, and `goodjob/teams` projection units,
+4. registers the compact `job_group` tool and `team-task` Wait provider when their owning registries are present, and
+5. mounts a loopback-only RPC channel for recursive descendant reads and optional Team controls.
 
 Every registration is an effect on the service fiber: uninstalling or disabling GoodJob removes the projection key, the settings namespace, the header action, and the card together, and leaves durable DSH history untouched.
 
@@ -40,11 +53,11 @@ Every registration is an effect on the service fiber: uninstalling or disabling 
 
 | | |
 |---|---|
-| Requires | A DeepSeek Harness tree carrying `@deepseek-ai/dsh-wait` (durable agent waits) and the non-consuming `jobs.observe` API |
+| Requires | A DeepSeek Harness tree carrying durable Waits, `jobs.observe`, generic Connection RPC, and ignorable plugin Session append metadata |
 | Install channel | Web profile bundle via the `dsh plugin` command |
 | Missing seams | Detected at load; GoodJob degrades with a diagnostic naming this file instead of failing the composition |
 
-No released DeepSeek Harness version ships both seams yet: run the web profile from a source checkout of `deepseek-harness` main that contains them. GoodJob deliberately declares **no upstream patch requirement** — everything it reads is a public seam (session projections, jobs registry mirror, subagent control RPCs, settings namespaces, client slots).
+No released DeepSeek Harness version ships this complete floor yet. Run the web profile from a source checkout containing these public seams. Agent Teams remains optional: its absence removes the Team section and controls without affecting Jobs, Groups, Waits, or Subagents.
 
 ## Installation
 
@@ -76,21 +89,21 @@ npx @deepseek-ai/dsh plugin --profile web update dsh-goodjob   # upgrade in plac
 npx @deepseek-ai/dsh plugin --profile web remove dsh-goodjob   # uninstall
 ```
 
-Uninstalling removes the dependency and the bundle layer; the next start composes stock DSH. Session logs written while GoodJob was enabled stay readable — `wait/change` events are owned by `@deepseek-ai/dsh-wait`, not by GoodJob.
+Uninstalling removes the dependency and bundle layer. `wait/change` and `team/*` history remains owned by DSH. `goodjob/group-change` events carry the Session envelope's `ignorable: true` marker, so a DSH build that does not know GoodJob can skip that metadata safely; the referenced Jobs remain authoritative.
 
 ## Limitations
 
-- **Read-mostly by design.** Job Stop/Kill is intentionally absent: the current producer-settlement semantics around `kill()` are still being settled upstream, and a human stop button must not leave an agent believing a stopped job is still running.
-- **Direct children only.** The agents section lists the current session's direct catalog children; descendant navigation uses the existing lineage UI.
-- **No Agent Teams adapter yet.** Team roster/mailbox/task-board projection is planned as an optional adapter loaded only when experimental Agent Teams is composed; base GoodJob has no experimental dependency.
+- **No Job Stop/Kill.** GoodJob does not claim process ownership or expose an unsafe termination shortcut.
+- **No batch launcher.** Launch requests continue through each producer's existing approval, sandbox, working-directory, environment, and cleanup path.
+- **Optional Teams runtime.** Durable Team events can be projected without the service, but live controls require the Team Lead session and Agent Teams service to be composed.
 - **Waits are read-only here.** Creating waits stays with the model-facing tools (`wait_create` / `wait_list` / `wait_cancel`); GoodJob only visualizes intent.
-- No completion percentages anywhere: status comes from real registries, elapsed time from real timestamps.
+- Team-task completion is the only additional Wait provider in v0.2. Message and subagent-report waits are deferred until their owning services expose an unambiguous from-now cursor.
 
 ## Development
 
 ```bash
 pnpm install
-pnpm test          # fold + host-lifecycle suites (vitest)
+pnpm test          # folds, adapters, lifecycle, and browser components
 pnpm run build     # tsc declarations + browser closure-factory bundle
 ```
 
@@ -110,13 +123,16 @@ Repository layout:
 
 ```
 cordis.patch.yml    the bundle patch — one composition row (dual-face package)
-src/index.ts        host half: service, seam detection, waits projection
+src/index.ts        host half: lifecycle and projection registration
 src/config.ts       shared config schema + defaults
 src/fold.ts         pure wait/change fold (read-only replay semantics)
+src/groups.ts       durable Job Groups and the job_group tool
+src/teams.ts        Team projection and team-task Wait provider
+src/rpc.ts          recursive descendants and Team controls
 src/types.ts        wire values + structural faces of consumed DSH seams
 src/client/         browser half: entry, operations view, settings card
 scripts/setup-dev.mjs  local link setup for development against DSH sources
-tests/              vitest suites (fold semantics, host lifecycle)
+tests/              vitest suites (folds, tools, lifecycle, browser rendering)
 lib/                committed build output — installs need no build step
 ```
 

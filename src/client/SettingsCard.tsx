@@ -24,6 +24,11 @@ const FIELDS = [
   ['showJobs', 'Jobs'],
   ['showSubagents', 'Agents'],
   ['showWaits', 'Waits'],
+  ['showGroups', 'Job Groups'],
+  ['autoExpandActiveGroups', 'Expand active groups'],
+  ['showTeams', 'Agent Teams'],
+  ['showTeamMailbox', 'Team mailbox'],
+  ['showTeamTasks', 'Team tasks'],
   ['autoFollowOutput', 'Auto-follow job output'],
 ] as const
 
@@ -56,6 +61,11 @@ export function GoodJobSettingsCard({ api }: SettingsCardProps) {
             showJobs: value?.showJobs ?? true,
             showWaits: value?.showWaits ?? true,
             showSubagents: value?.showSubagents ?? true,
+            showGroups: value?.showGroups ?? true,
+            autoExpandActiveGroups: value?.autoExpandActiveGroups ?? true,
+            showTeams: value?.showTeams ?? true,
+            showTeamMailbox: value?.showTeamMailbox ?? true,
+            showTeamTasks: value?.showTeamTasks ?? true,
             autoFollowOutput: value?.autoFollowOutput ?? true,
           })
         }

@@ -1,5 +1,5 @@
 /**
- * Agents section: one row per direct subagent child of the current session.
+ * Agents section: one row per descendant subagent of the current session.
  *
  * Data comes from the existing `subagentsByParent` catalog mirror; message
  * and interrupt go through the existing subagent RPCs, so no duplicate
@@ -17,18 +17,24 @@ import { css } from './styles.ts'
 export interface AgentRow {
   /** Child session id. */
   id: string
+  /** Immediate parent used by the existing subagent control API. */
+  parentId: string
+  /** Depth below the operations-view root. */
+  depth: number
   /** Catalog label; one-shots may be unlabeled. */
   label?: string
   /** Delivery mode; continuable children accept further prompts. */
   mode: 'one-shot' | 'continuable'
   /** Driver state at the last catalog refresh. */
   activity: 'running' | 'inactive'
+  /** Live model when the descendant is currently loaded. */
+  model?: string
+  /** Jobs currently correlated to this descendant. */
+  relatedJobIds: readonly string[]
 }
 
 /** Props for {@link AgentsList}. */
 export interface AgentsListProps {
-  /** Parent (current) session id used to address every child. */
-  sessionId: string
   /** Catalog rows for the current session's direct children. */
   agents: readonly AgentRow[]
   /** Subagent control API. */
@@ -44,20 +50,20 @@ export interface AgentsListProps {
  * @param props - parent id, agents, API, translator.
  * @returns the list, or the empty line.
  */
-export function AgentsList({ sessionId, agents, subagentsApi, onOpen, t }: AgentsListProps) {
+export function AgentsList({ agents, subagentsApi, onOpen, t }: AgentsListProps) {
   const [composingFor, setComposingFor] = useState<string>()
   const [draft, setDraft] = useState('')
   const [busy, setBusy] = useState(false)
 
   if (agents.length === 0) return <p className={css.empty}>{t('agents.empty')}</p>
 
-  const send = async (childSessionId: string): Promise<void> => {
+  const send = async (agent: AgentRow): Promise<void> => {
     if (draft.trim().length === 0) return
     setBusy(true)
     try {
       await subagentsApi.prompt({
-        parentSessionId: sessionId as SessionId,
-        childSessionId: childSessionId as SessionId,
+        parentSessionId: agent.parentId as SessionId,
+        childSessionId: agent.id as SessionId,
         mode: 'continuable',
         content: [{ type: 'text', text: draft }],
       })
@@ -68,13 +74,13 @@ export function AgentsList({ sessionId, agents, subagentsApi, onOpen, t }: Agent
     }
   }
 
-  const interrupt = async (childSessionId: string): Promise<void> => {
+  const interrupt = async (agent: AgentRow): Promise<void> => {
     if (!window.confirm(t('agents.interruptConfirm'))) return
     setBusy(true)
     try {
       await subagentsApi.interrupt({
-        parentSessionId: sessionId as SessionId,
-        childSessionId: childSessionId as SessionId,
+        parentSessionId: agent.parentId as SessionId,
+        childSessionId: agent.id as SessionId,
         mode: 'continuable',
       })
     } finally {
@@ -90,8 +96,12 @@ export function AgentsList({ sessionId, agents, subagentsApi, onOpen, t }: Agent
             className={`${css.agentDot} ${agent.activity === 'running' ? css.agentRunning : ''}`}
             title={t(agent.activity === 'running' ? 'status.running' : 'status.inactive')}
           />
+          <span className={css.agentDepth} style={{ marginLeft: `${Math.max(0, agent.depth - 1) * 12}px` }}>↳</span>
           <span className={css.agentLabel}>{agent.label ?? agent.id}</span>
-          <span className={css.agentMode}>{agent.mode}</span>
+          <span className={css.agentMode}>
+            {agent.mode}{agent.model === undefined ? '' : ` · ${agent.model}`}
+            {agent.relatedJobIds.length === 0 ? '' : ` · ${agent.relatedJobIds.join(', ')}`}
+          </span>
           <span className={css.agentActions}>
             <button type="button" className={css.action} onClick={() => { onOpen(agent.id) }}>
               {t('agents.open')}
@@ -103,7 +113,7 @@ export function AgentsList({ sessionId, agents, subagentsApi, onOpen, t }: Agent
               type="button"
               className={css.action}
               disabled={busy}
-              onClick={() => { void interrupt(agent.id) }}
+              onClick={() => { void interrupt(agent) }}
             >
               {t('agents.interrupt')}
             </button>
@@ -126,7 +136,7 @@ export function AgentsList({ sessionId, agents, subagentsApi, onOpen, t }: Agent
                     type="button"
                     className={`${css.action} ${css.primary}`}
                     disabled={busy || draft.trim().length === 0}
-                    onClick={() => { void send(agent.id) }}
+                    onClick={() => { void send(agent) }}
                   >
                     {t('agents.send')}
                   </button>
@@ -141,7 +151,7 @@ export function AgentsList({ sessionId, agents, subagentsApi, onOpen, t }: Agent
 }
 
 /** Narrow a raw catalog entry to the renderable child shape; diagnostics rows are skipped. */
-export function toAgentRow(entry: unknown): AgentRow | undefined {
+export function toAgentRow(entry: unknown, fallbackParentId = ''): AgentRow | undefined {
   if (typeof entry !== 'object' || entry === null) return undefined
   const candidate = entry as Record<string, unknown>
   if (candidate.kind !== 'child') return undefined
@@ -149,8 +159,14 @@ export function toAgentRow(entry: unknown): AgentRow | undefined {
   if (candidate.activity !== 'running' && candidate.activity !== 'inactive') return undefined
   return {
     id: String(candidate.id),
+    parentId: typeof candidate.parentId === 'string' ? candidate.parentId : fallbackParentId,
+    depth: typeof candidate.depth === 'number' ? candidate.depth : 1,
     label: typeof candidate.label === 'string' ? candidate.label : undefined,
     mode: candidate.mode,
     activity: candidate.activity,
+    model: typeof candidate.model === 'string' ? candidate.model : undefined,
+    relatedJobIds: Array.isArray(candidate.relatedJobIds)
+      ? candidate.relatedJobIds.filter((id): id is string => typeof id === 'string')
+      : [],
   }
 }

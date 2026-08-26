@@ -5,17 +5,23 @@ import { NS } from './locales.ts';
 export interface AgentRow {
     /** Child session id. */
     id: string;
+    /** Immediate parent used by the existing subagent control API. */
+    parentId: string;
+    /** Depth below the operations-view root. */
+    depth: number;
     /** Catalog label; one-shots may be unlabeled. */
     label?: string;
     /** Delivery mode; continuable children accept further prompts. */
     mode: 'one-shot' | 'continuable';
     /** Driver state at the last catalog refresh. */
     activity: 'running' | 'inactive';
+    /** Live model when the descendant is currently loaded. */
+    model?: string;
+    /** Jobs currently correlated to this descendant. */
+    relatedJobIds: readonly string[];
 }
 /** Props for {@link AgentsList}. */
 export interface AgentsListProps {
-    /** Parent (current) session id used to address every child. */
-    sessionId: string;
     /** Catalog rows for the current session's direct children. */
     agents: readonly AgentRow[];
     /** Subagent control API. */
@@ -30,6 +36,6 @@ export interface AgentsListProps {
  * @param props - parent id, agents, API, translator.
  * @returns the list, or the empty line.
  */
-export declare function AgentsList({ sessionId, agents, subagentsApi, onOpen, t }: AgentsListProps): import("react").JSX.Element;
+export declare function AgentsList({ agents, subagentsApi, onOpen, t }: AgentsListProps): import("react").JSX.Element;
 /** Narrow a raw catalog entry to the renderable child shape; diagnostics rows are skipped. */
-export declare function toAgentRow(entry: unknown): AgentRow | undefined;
+export declare function toAgentRow(entry: unknown, fallbackParentId?: string): AgentRow | undefined;

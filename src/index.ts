@@ -1,6 +1,6 @@
 /**
  * GoodJob host half: settings namespace, capability detection, and the
- * `goodjob/waits` session projection unit.
+ * GoodJob's durable projection and operations adapters.
  *
  * GoodJob owns no domain authority. Jobs reach the browser through the
  * existing `jobsBySession` mirror and the non-consuming observe RPC;
@@ -18,9 +18,17 @@ import { z as zod } from 'zod'
 // Type-only: resolves ctx.sessionProjections where a projection registry is composed.
 import type {} from '@deepseek-ai/dsh-session-projection'
 import { applyWaitEvent } from './fold.ts'
+import { applyGroupEvent, registerGroupTool } from './groups.ts'
+import { registerGoodJobRpc } from './rpc.ts'
+import { applyTeamEvent, registerTeamTaskWaitProvider } from './teams.ts'
 import { detectSeams, missingSeamDiagnostics } from './detect.ts'
 import type { DetectedSeams } from './detect.ts'
-import type { GoodJobWaitsProjection, ProjectionRegistry } from './types.ts'
+import type {
+  GoodJobGroupsProjection,
+  GoodJobTeamsProjection,
+  GoodJobWaitsProjection,
+  ProjectionRegistry,
+} from './types.ts'
 
 import { ConfigSchema } from './config.ts'
 import { DEFAULTS, type Config } from './config-types.ts'
@@ -29,6 +37,8 @@ export { ConfigSchema, DEFAULTS }
 
 /** Bump when the fold changes shape; pure additions keep the version. */
 const WAITS_STATE_VERSION = 1
+const GROUPS_STATE_VERSION = 1
+const TEAMS_STATE_VERSION = 1
 
 /** Wire schema validating the whole projection value on both sides. */
 const goodJobWaitsSchema: zod.ZodType<GoodJobWaitsProjection | null> = zod.union([
@@ -52,6 +62,58 @@ const goodJobWaitsSchema: zod.ZodType<GoodJobWaitsProjection | null> = zod.union
   }),
   zod.null(),
 ])
+
+const groupSchema = zod.object({
+  id: zod.string(),
+  ownerSessionId: zod.string(),
+  revision: zod.number().int().positive(),
+  label: zod.string(),
+  jobIds: zod.array(zod.string()),
+  createdAt: zod.number().int().nonnegative(),
+})
+
+const goodJobGroupsSchema = zod.union([
+  zod.object({ groups: zod.array(groupSchema) }),
+  zod.null(),
+]) as unknown as zod.ZodType<GoodJobGroupsProjection | null>
+
+const goodJobTeamsSchema = zod.union([
+  zod.object({
+    teams: zod.array(zod.object({
+      teamId: zod.string(),
+      members: zod.array(zod.object({
+        id: zod.string(),
+        name: zod.string(),
+        description: zod.string(),
+        provider: zod.string(),
+        context: zod.enum(['fresh', 'fork']),
+        phase: zod.enum(['provisioning', 'active', 'failed']),
+        error: zod.string().optional(),
+      })),
+      tasks: zod.array(zod.object({
+        id: zod.string(),
+        revision: zod.number().int().positive(),
+        subject: zod.string(),
+        description: zod.string(),
+        status: zod.enum(['pending', 'in_progress', 'completed', 'deleted']),
+        ownerId: zod.string().optional(),
+        blockedBy: zod.array(zod.string()),
+        writeScopes: zod.array(zod.string()),
+      })),
+      messages: zod.array(zod.object({
+        id: zod.string(),
+        senderId: zod.string(),
+        senderName: zod.string(),
+        targetId: zod.string(),
+        delivery: zod.enum(['quiet', 'wakeup']),
+        text: zod.string(),
+        queuedAt: zod.number().int().nonnegative(),
+        delivered: zod.boolean(),
+      })),
+    })),
+  }),
+  zod.null(),
+]) as zod.ZodType<GoodJobTeamsProjection | null>
 
 /**
  * The GoodJob operations service. The class is the bundle row's mount point:
@@ -83,8 +145,8 @@ export default class GoodJobService extends Service {
     // single teardown effect on the service fiber.
     this.lateDisposers = new Set()
     ctx.effect(
-      () => () => {
-        for (const dispose of this.lateDisposers) dispose()
+      () => async () => {
+        await Promise.allSettled([...this.lateDisposers].map(dispose => Promise.resolve(dispose())))
         this.lateDisposers.clear()
       },
       'goodjob: seam teardown',
@@ -99,14 +161,19 @@ export default class GoodJobService extends Service {
         this.projectionsAttached = true
         this.attachProjections(value as NonNullable<DetectedSeams['projections']>)
       }
+      this.attachRuntimeAdapters()
     })
+    this.attachRuntimeAdapters()
   }
 
   /** Whether each seam has been wired (immediately or late). */
   private settingsAttached = false
   private projectionsAttached = false
+  private groupToolAttached = false
+  private teamTaskWaitAttached = false
+  private rpcAttached = false
   /** Disposers of seam registrations, drained by the seam-teardown effect. */
-  private lateDisposers!: Set<() => void>
+  private lateDisposers!: Set<() => void | Promise<void>>
 
   /**
    * Wire every seam present at construction and report the absent ones.
@@ -147,5 +214,48 @@ export default class GoodJobService extends Service {
         view: state => state,
       },
     }))
+    this.lateDisposers.add(registry.register({
+      key: 'goodjob/groups',
+      stateSchema: goodJobGroupsSchema,
+      init: () => null,
+      apply: (state, event) => applyGroupEvent(state, event) as GoodJobGroupsProjection | null,
+      stateVersion: GROUPS_STATE_VERSION,
+      wire: {
+        viewSchema: goodJobGroupsSchema,
+        view: state => state,
+      },
+    }))
+    this.lateDisposers.add(registry.register({
+      key: 'goodjob/teams',
+      stateSchema: goodJobTeamsSchema,
+      init: () => null,
+      apply: (state, event) => applyTeamEvent(state, event) as GoodJobTeamsProjection | null,
+      stateVersion: TEAMS_STATE_VERSION,
+      wire: {
+        viewSchema: goodJobTeamsSchema,
+        view: state => state,
+      },
+    }))
+  }
+
+  /** Attach operational adapters once their owning services are composed. */
+  private attachRuntimeAdapters(): void {
+    if (!this.groupToolAttached
+      && this.ctx.get('tools') !== undefined
+      && this.ctx.get('jobs') !== undefined
+      && this.ctx.get('sessions') !== undefined) {
+      this.groupToolAttached = true
+      this.lateDisposers.add(registerGroupTool(this.ctx))
+    }
+    if (!this.teamTaskWaitAttached
+      && this.ctx.get('waits') !== undefined
+      && this.ctx.get('agentTeams') !== undefined) {
+      this.teamTaskWaitAttached = true
+      this.lateDisposers.add(registerTeamTaskWaitProvider(this.ctx))
+    }
+    if (!this.rpcAttached && this.ctx.get('connection') !== undefined) {
+      this.rpcAttached = true
+      this.lateDisposers.add(registerGoodJobRpc(this.ctx))
+    }
   }
 }
