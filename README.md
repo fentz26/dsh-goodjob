@@ -7,7 +7,7 @@ GoodJob is an out-of-tree DeepSeek Harness plugin (a *bundle*). It gives you an 
 Security reports should follow the private process in [SECURITY.md](SECURITY.md).
 
 ```bash
-npx @deepseek-ai/dsh plugin --profile web add github:fentz26/dsh-goodjob
+npx -y @deepseek-ai/dsh@0.1.1-rc.2 plugin --profile web add github:fentz26/dsh-goodjob
 ```
 
 ---
@@ -57,11 +57,24 @@ Every registration is an effect on the service fiber: uninstalling or disabling 
 
 | | |
 |---|---|
-| Requires | A DeepSeek Harness tree carrying durable Waits, `jobs.observe`, generic Connection RPC, and ignorable plugin Session append metadata |
+| Verified minimum | DeepSeek Harness **0.1.1-rc.2** (published npm CLI): GoodJob installs and boots; Jobs observe, Job Groups, Waits projection, and Subagents work |
 | Install channel | Web profile bundle via the `dsh plugin` command |
-| Missing seams | Detected at load; GoodJob degrades with a diagnostic naming this file instead of failing the composition |
+| Missing seams | Detected at load; GoodJob degrades with one boot-time diagnostic instead of failing the composition |
 
-No released DeepSeek Harness version ships this complete floor yet. Run the web profile from a source checkout containing these public seams. Agent Teams remains optional: its absence removes the Team section and controls without affecting Jobs, Groups, Waits, or Subagents.
+On published 0.1.1-rc.2 two capabilities are unavailable because their owning DSH seams are unreleased:
+
+- **Settings → Plugins card** — rc.2 does not compose a settings registry. The card is hidden; every other feature keeps its built-in defaults. One concise diagnostic names this at web-profile startup.
+- **Hosted Session views (Trajectory hosting)** — rc.2 has no session slot host. A tab opened for another plugin's registered `conversation.view` shows an explicit "View unavailable" notice instead of the hosted view. The GoodJob workspace itself is unaffected.
+
+Both activate automatically on any DSH tree that composes the corresponding seams (upstream branches carrying the settings registry and the session slot host). Agent Teams remains optional regardless: its absence removes the Team section and controls without affecting Jobs, Groups, Waits, or Subagents.
+
+### Known launcher issue
+
+Some environments cannot execute the bare-spec launcher — `npx @deepseek-ai/dsh …` hangs and eventually aborts while npm resolves the unpinned spec from the registry. This is an npx/npm resolution problem, not a packaging defect in the CLI (the pinned package tarball installs and runs correctly), and it does not involve GoodJob. Pin until the upstream issue is resolved:
+
+```bash
+npx -y @deepseek-ai/dsh@0.1.1-rc.2 …
+```
 
 ## Installation
 
@@ -73,7 +86,7 @@ Prerequisites:
 Install into the web profile:
 
 ```bash
-npx @deepseek-ai/dsh plugin --profile web add github:fentz26/dsh-goodjob
+npx -y @deepseek-ai/dsh@0.1.1-rc.2 plugin --profile web add github:fentz26/dsh-goodjob
 ```
 
 What happens: the CLI initializes the profile on first use, forwards the spec to pnpm (which resolves `github:` sources through your normal git credential path), then reconciles the profile's layer list against installed packages — GoodJob joins because its manifest declares `dsh.bundle.patch`. Users without repository access see pnpm's authentication failure verbatim; no fallback, no token handling.
@@ -81,16 +94,16 @@ What happens: the CLI initializes the profile on first use, forwards the spec to
 Then start the web profile as usual:
 
 ```bash
-npx @deepseek-ai/dsh --profile web
+npx -y @deepseek-ai/dsh@0.1.1-rc.2 --profile web
 ```
 
-and confirm **Settings → Plugins** shows the GoodJob card.
+and open the **GoodJob** conversation view in a Session. On DSH trees that compose the settings registry, the same configuration appears under **Settings → Plugins → GoodJob**.
 
 ### Upgrade / uninstall
 
 ```bash
-npx @deepseek-ai/dsh plugin --profile web update dsh-goodjob   # upgrade in place
-npx @deepseek-ai/dsh plugin --profile web remove dsh-goodjob   # uninstall
+npx -y @deepseek-ai/dsh@0.1.1-rc.2 plugin --profile web update dsh-goodjob   # upgrade in place
+npx -y @deepseek-ai/dsh@0.1.1-rc.2 plugin --profile web remove dsh-goodjob   # uninstall
 ```
 
 Uninstalling removes the dependency and bundle layer. `wait/change` and `team/*` history remains owned by DSH. `goodjob/group-change` events carry the Session envelope's `ignorable: true` marker, so a DSH build that does not know GoodJob can skip that metadata safely; the referenced Jobs remain authoritative.
