@@ -7,7 +7,7 @@
 import { Context } from '@deepseek-ai/cordis'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import GoodJobService, { DEFAULTS } from '../src/index.ts'
-import { Config as ConfigSchema } from '../src/config.ts'
+import { ConfigSchema } from '../src/config.ts'
 import type { ProjectionRegistry } from '../src/types.ts'
 
 /** Recorded registrations of one fake seam. */

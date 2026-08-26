@@ -10,7 +10,7 @@
  */
 import type { ClientContext } from '@deepseek-ai/dsh-client-runtime/client'
 import type {} from '@deepseek-ai/dsh-client-locale/client'
-import { DEFAULTS, type Config } from '../config.ts'
+import { DEFAULTS, type Config } from '../config-types.ts'
 import { OperationsAction } from './OperationsAction.tsx'
 import type { OperationsInjected } from './OperationsAction.tsx'
 import { GoodJobSettingsCard } from './SettingsCard.tsx'

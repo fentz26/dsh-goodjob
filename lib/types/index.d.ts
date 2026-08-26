@@ -14,8 +14,9 @@
 import { Service } from '@deepseek-ai/cordis';
 import type { Context } from '@deepseek-ai/cordis';
 import z from '@deepseek-ai/schemastery';
-import { Config, DEFAULTS } from './config.ts';
-export { Config, DEFAULTS };
+import { ConfigSchema } from './config.ts';
+import { DEFAULTS, type Config } from './config-types.ts';
+export { ConfigSchema, DEFAULTS };
 /**
  * The GoodJob operations service. The class is the bundle row's mount point:
  * it registers the settings namespace, detects capability seams with

@@ -9,7 +9,7 @@
  * @module dsh-goodjob/client
  */
 import type { ClientContext } from '@deepseek-ai/dsh-client-runtime/client';
-import { type Config } from '../config.ts';
+import { type Config } from '../config-types.ts';
 /** Required services for locale registration, the connection face, slots, and sessions. */
 export declare const inject: string[];
 /**

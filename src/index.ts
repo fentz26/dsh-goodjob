@@ -22,9 +22,10 @@ import { detectSeams, missingSeamDiagnostics } from './detect.ts'
 import type { DetectedSeams } from './detect.ts'
 import type { GoodJobWaitsProjection, ProjectionRegistry } from './types.ts'
 
-import { Config, DEFAULTS } from './config.ts'
+import { ConfigSchema } from './config.ts'
+import { DEFAULTS, type Config } from './config-types.ts'
 
-export { Config, DEFAULTS }
+export { ConfigSchema, DEFAULTS }
 
 /** Bump when the fold changes shape; pure additions keep the version. */
 const WAITS_STATE_VERSION = 1
@@ -59,7 +60,7 @@ const goodJobWaitsSchema: zod.ZodType<GoodJobWaitsProjection | null> = zod.union
  * session-projection registry is composed.
  */
 export default class GoodJobService extends Service {
-  static Config: z<Config> = Config
+  static Config: z<Config> = ConfigSchema
 
   /** Resolved configuration snapshot captured at load. */
   readonly config: Required<Config>
@@ -123,7 +124,7 @@ export default class GoodJobService extends Service {
    */
   private attachSettings(settings: NonNullable<DetectedSeams['settings']>): void {
     this.settingsAttached = true
-    this.lateDisposers.add(settings.register('goodjob', Config))
+    this.lateDisposers.add(settings.register('goodjob', ConfigSchema))
   }
 
   /**

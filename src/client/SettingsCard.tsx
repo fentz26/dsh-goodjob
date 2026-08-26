@@ -11,7 +11,7 @@ import { useEffect, useState } from 'react'
 import type { IApiClient } from '@deepseek-ai/dsh-client-connection/client'
 import type {} from '@deepseek-ai/dsh-client-ui-slots'
 import { css } from './styles.ts'
-import type { Config } from '../config.ts'
+import type { Config } from '../config-types.ts'
 
 /** Props for {@link GoodJobSettingsCard}. */
 export interface SettingsCardProps {
