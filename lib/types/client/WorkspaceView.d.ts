@@ -1,5 +1,5 @@
 import type { IApiClient, JobView, SessionId } from '@deepseek-ai/dsh-client-connection/client';
-import type { InjectFace, PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots';
+import type { InjectFace, PropsLocale, PropsRuntime, SessionSlotHostComponent } from '@deepseek-ai/dsh-client-ui-slots';
 import type { Config } from '../config-types.ts';
 import type { GoodJobGroupView, GoodJobRuntimeTeamMember, GoodJobRuntimeTeamTask, GoodJobTeamMessageView, GoodJobWaitView } from '../types.ts';
 import { type AgentRow } from './AgentsList.tsx';
@@ -23,6 +23,11 @@ export interface WorkspaceDomain {
     tasks: readonly GoodJobRuntimeTeamTask[];
     messages: readonly GoodJobTeamMessageView[];
 }
+/** One presentation lens discovered from the DSH conversation-view registry. */
+export interface WorkspaceSessionView {
+    id: string;
+    label: string;
+}
 /** Runtime dependencies supplied to the native GoodJob view. */
 export interface WorkspaceInjected {
     api: IApiClient;
@@ -34,6 +39,11 @@ export interface WorkspaceInjected {
         childSessionId: SessionId;
         mode: 'continuable' | 'one-shot';
     }): void;
+    sessionViews: {
+        list(): readonly WorkspaceSessionView[];
+        subscribe(listener: () => void): () => void;
+        version(): number;
+    };
 }
 /** Full props for the native conversation view. */
 export type WorkspaceViewProps = PropsRuntime<'conversation.view'> & PropsLocale<typeof NS> & InjectFace<WorkspaceInjected>;
@@ -46,6 +56,8 @@ export interface GoodJobWorkspaceProps {
     storage?: Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>;
     onOpenSession(agent: AgentRow): void;
     onRefresh(): void;
+    sessionViews: readonly WorkspaceSessionView[];
+    sessionSlotHost?: SessionSlotHostComponent;
 }
 /** Native view wrapper: subscribe to DSH mirrors and read optional runtime adapters once. */
 export declare function WorkspaceView(props: WorkspaceViewProps): import("react").JSX.Element;

@@ -5,11 +5,14 @@ import {
   useMemo,
   useRef,
   useState,
+  useSyncExternalStore,
 } from 'react'
 import type {} from '@deepseek-ai/dsh-client-runtime/client'
 import type {} from '@deepseek-ai/dsh-client-ui-conversation/client'
 import type { IApiClient, JobOutputView, JobView, SessionId } from '@deepseek-ai/dsh-client-connection/client'
-import type { InjectFace, PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
+import type {
+  InjectFace, PropsLocale, PropsRuntime, SessionSlotHostComponent,
+} from '@deepseek-ai/dsh-client-ui-slots'
 import type { Config } from '../config-types.ts'
 import type {
   GoodJobGroupView,
@@ -59,6 +62,12 @@ export interface WorkspaceDomain {
   messages: readonly GoodJobTeamMessageView[]
 }
 
+/** One presentation lens discovered from the DSH conversation-view registry. */
+export interface WorkspaceSessionView {
+  id: string
+  label: string
+}
+
 /** Runtime dependencies supplied to the native GoodJob view. */
 export interface WorkspaceInjected {
   api: IApiClient
@@ -66,6 +75,11 @@ export interface WorkspaceInjected {
   config: Required<Config>
   refreshSubagents(parentSessionId: SessionId): Promise<void>
   openChild(address: { parentSessionId: SessionId; childSessionId: SessionId; mode: 'continuable' | 'one-shot' }): void
+  sessionViews: {
+    list(): readonly WorkspaceSessionView[]
+    subscribe(listener: () => void): () => void
+    version(): number
+  }
 }
 
 /** Full props for the native conversation view. */
@@ -81,6 +95,8 @@ export interface GoodJobWorkspaceProps {
   storage?: Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>
   onOpenSession(agent: AgentRow): void
   onRefresh(): void
+  sessionViews: readonly WorkspaceSessionView[]
+  sessionSlotHost?: SessionSlotHostComponent
 }
 
 const NO_JOBS: Readonly<Record<string, readonly JobView[] | undefined>> = {}
@@ -92,7 +108,11 @@ function isLive(job: JobView): boolean {
 
 /** Native view wrapper: subscribe to DSH mirrors and read optional runtime adapters once. */
 export function WorkspaceView(props: WorkspaceViewProps) {
-  const { sessionId, useSessions, useProjection, api, rpc, config, refreshSubagents, openChild } = props
+  const {
+    sessionId, useSessions, useProjection, api, rpc, config, refreshSubagents, openChild,
+    sessionViews, SessionSlotHost,
+  } = props
+  useSyncExternalStore(sessionViews.subscribe, sessionViews.version)
   const useSessionsTyped = useSessions as unknown as <T,>(selector: (state: {
     jobsBySession: Record<string, readonly JobView[] | undefined>
     subagentsByParent: Record<string, unknown>
@@ -154,6 +174,8 @@ export function WorkspaceView(props: WorkspaceViewProps) {
       config={config}
       storage={typeof localStorage === 'undefined' ? undefined : localStorage}
       onRefresh={refresh}
+      sessionViews={sessionViews.list()}
+      sessionSlotHost={SessionSlotHost}
       onOpenSession={(agent) => {
         if (agent.id === String(sessionId)) return
         openChild({
@@ -431,6 +453,7 @@ function EntityEditor(props: EntityEditorProps) {
       const task = domain.tasks.find(candidate => candidate.id === entity.taskId)
       return task === undefined ? <UnavailableEditor entity={entity} /> : <TaskEditor {...props} task={task} />
     }
+    case 'session-view': return <SessionViewEditor {...props} />
   }
 }
 
@@ -579,7 +602,7 @@ function AgentEditor(props: EntityEditorProps & { agent: AgentRow }) {
         status={agent.activity}
         entity={{ kind: 'agent', sessionId: agent.id }}
         onOpenSide={props.onOpenSide}
-        actions={<AgentControls {...props} agent={agent} teamMember={teamMember} />}
+        actions={<><SessionViewActions {...props} agent={agent} /><AgentControls {...props} agent={agent} teamMember={teamMember} /></>}
       />
       {agent.model === undefined ? null : <dl className="gj-fields"><dt>Provider/model</dt><dd>{agent.model}</dd></dl>}
       <section className="gj-section">
@@ -599,6 +622,25 @@ function AgentEditor(props: EntityEditorProps & { agent: AgentRow }) {
         </section>
       ) : null}
     </>
+  )
+}
+
+function SessionViewActions(props: EntityEditorProps & { agent: AgentRow }) {
+  const views = props.sessionViews.filter(view => view.id !== 'goodjob')
+  return views.length === 0 ? null : (
+    <div className="gj-toolbar" aria-label={`Session views for ${props.agent.label ?? props.agent.id}`}>
+      {views.map(view => {
+        const entity: WorkspaceEntity = {
+          kind: 'session-view', sessionId: props.agent.id, viewId: view.id,
+        }
+        return (
+          <span className="gj-toolbar" key={view.id}>
+            <button type="button" className="gj-action" onClick={() => { props.onOpen(entity) }}>Open {view.label}</button>
+            <button type="button" className="gj-iconButton" aria-label={`Open ${view.label} to side`} onClick={() => { props.onOpenSide(entity, 'vertical') }}>◫</button>
+          </span>
+        )
+      })}
+    </div>
   )
 }
 
@@ -870,6 +912,41 @@ function TaskEditor(props: EntityEditorProps & { task: GoodJobRuntimeTeamTask })
   )
 }
 
+function SessionViewEditor(props: EntityEditorProps) {
+  if (props.entity.kind !== 'session-view') return null
+  const entity = props.entity
+  const agent = leadAndAgents(props.domain).find(candidate => candidate.id === entity.sessionId)
+  const registration = props.sessionViews.find(view => view.id === entity.viewId)
+  const label = registration?.label ?? entity.viewId
+  const fallback = (
+    <div className="gj-sessionViewUnavailable" role="status">
+      <h3 className="gj-sectionTitle">View unavailable</h3>
+      <p className="gj-quiet">The registered conversation view “{entity.viewId}” is not currently available. The workspace tab retains only its presentation identity and will recover if the plugin registers the view again.</p>
+    </div>
+  )
+  const Host = props.sessionSlotHost
+  return (
+    <>
+      <EditorTitle
+        title={`${agent?.label ?? entity.sessionId} / ${label}`}
+        subtitle={`Session ${entity.sessionId} · registered conversation view ${entity.viewId}`}
+        entity={entity}
+        onOpenSide={props.onOpenSide}
+      />
+      <div className="gj-sessionViewHost">
+        {Host === undefined ? fallback : (
+          <Host
+            name="conversation.view"
+            sessionId={entity.sessionId as SessionId}
+            owner={{ inspect: null, onInspectDone: () => {} }}
+            opts={{ only: entity.viewId, fallback }}
+          />
+        )}
+      </div>
+    </>
+  )
+}
+
 function UnavailableEditor({ entity }: { entity: WorkspaceEntity }) {
   return <><h2 className="gj-title">Unavailable</h2><p className="gj-quiet">{entityKey(entity)} is no longer present in the current DSH projection. Close this presentation tab or refresh the owning capability.</p></>
 }
@@ -894,6 +971,10 @@ function entityLabel(entity: WorkspaceEntity, domain: WorkspaceDomain): string {
     case 'job-group': return domain.groups.find(group => String(group.id) === entity.groupId)?.label ?? entity.groupId
     case 'wait': return entity.waitId
     case 'task': return domain.tasks.find(task => task.id === entity.taskId)?.subject ?? entity.taskId
+    case 'session-view': {
+      const agent = leadAndAgents(domain).find(candidate => candidate.id === entity.sessionId)
+      return `${agent?.label ?? entity.sessionId} / ${entity.viewId}`
+    }
   }
 }
 

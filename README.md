@@ -14,7 +14,7 @@ npx @deepseek-ai/dsh plugin --profile web add github:fentz26/dsh-goodjob
 
 ### Operations workspace (web profile)
 
-The native `GoodJob` conversation view opens on `General`, with an Explorer, stable internal tabs, and one to four split panes. Ordinary open focuses an existing entity tab; **Open to side**, split right/down, move, close, and reopen operate only on presentation state. On narrow screens the Explorer collapses and the focused pane remains available.
+The native `GoodJob` conversation view opens on `General`, with an Explorer, stable internal tabs, and one to four split panes. Ordinary open focuses an existing entity tab; **Open to side**, split right/down, move, close, and reopen operate only on presentation state. On narrow screens the Explorer collapses and the focused pane remains available. Agent tabs also discover sibling DSH `conversation.view` registrations and can host any of them for that Session; Trajectory remains owned by its plugin rather than becoming GoodJob data.
 
 `General` answers what is happening now with objective counts, attention state, timestamped activity, and a clickable relationship graph. Every value is projected from the capabilities below:
 
@@ -100,7 +100,7 @@ Uninstalling removes the dependency and bundle layer. `wait/change` and `team/*`
 - **Optional Teams runtime.** Durable Team events can be projected without the service, but live controls require the Team Lead session and Agent Teams service to be composed.
 - **Waits are read-only here.** Creating waits stays with the model-facing tools (`wait_create` / `wait_list` / `wait_cancel`); GoodJob only visualizes intent.
 - Team-task completion is the only additional Wait provider in v0.2. Message and subagent-report waits are deferred until their owning services expose an unambiguous from-now cursor.
-- **Transcript navigation, not embedding.** DSH does not expose its conversation renderer as a reusable nested component, so Agent tabs navigate to the owning Session and never copy transcript state.
+- **Transcript navigation plus registered lenses.** Agent tabs navigate to the owning Session for the standard transcript and may host public registered `conversation.view` entries through DSH's generic explicit-Session slot host. GoodJob never imports or copies Trajectory internals.
 - **Simple editor groups.** The workspace supports four panes but not nested editor groups, pinned tabs, drag-and-drop, or recently opened history.
 - **No synthetic activity.** Task transitions without authoritative timestamps, adapter refreshes, and relationships not represented by ids are omitted.
 

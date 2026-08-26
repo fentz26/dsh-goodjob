@@ -7,7 +7,7 @@
  * @module dsh-goodjob/client/workspace
  */
 /** Entity kinds that can occupy a GoodJob editor tab. */
-export type WorkspaceEntityKind = 'general' | 'agent' | 'job' | 'job-group' | 'wait' | 'task';
+export type WorkspaceEntityKind = 'general' | 'agent' | 'job' | 'job-group' | 'wait' | 'task' | 'session-view';
 /** Stable identity of one editor subject. */
 export type WorkspaceEntity = {
     kind: 'general';
@@ -27,6 +27,10 @@ export type WorkspaceEntity = {
 } | {
     kind: 'task';
     taskId: string;
+} | {
+    kind: 'session-view';
+    sessionId: string;
+    viewId: string;
 };
 /** Stable client identity for deduplication and persistence. */
 export declare function entityKey(entity: WorkspaceEntity): string;

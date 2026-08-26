@@ -10,13 +10,13 @@ GoodJob's session-header popover could list Jobs, Waits, Subagents, Groups, and 
 
 ## Decision
 
-GoodJob occupies the native DSH `conversation.view` seat and presents an internal workspace whose stable tab addresses contain only authoritative ids. `general`, `agent:<sessionId>`, `job:<sessionId>:<jobId>`, `group:<groupId>`, `wait:<waitId>`, and `task:<taskId>` resolve current values from DSH mirrors, Session projections, or optional adapters on every render.
+GoodJob occupies the native DSH `conversation.view` seat and presents an internal workspace whose stable tab addresses contain only authoritative ids. `general`, `agent:<sessionId>`, `job:<sessionId>:<jobId>`, `group:<groupId>`, `wait:<waitId>`, and `task:<taskId>` resolve current values from DSH mirrors, Session projections, or optional adapters on every render. `view:<sessionId>:<viewId>` addresses a registered presentation lens and stores no hosted snapshot.
 
 The client persists only open addresses, pane placement, active tabs, and Explorer collapse state under the root Session id. It never persists status, output, Wait settlement, task fields, mailbox messages, or execution state. Ordinary open focuses an existing address, while open-to-side may mount the same address in another pane. Each mounted Job editor owns an independent `jobs.observe` cursor and bounded browser buffer, so comparison views remain non-consuming and cannot advance the model-facing cursor.
 
 General is a read-only composition of objective counts, timestamped events, attention conditions, and explicit relationships. Graph edges require Session lineage, Job ownership or declared related ids, Group membership, Team task ownership, or Wait leaf ids. Missing timestamps or relationships produce omission rather than a synthetic activity item or inferred edge.
 
-DSH conversation rendering remains Session-owned. Agent editors navigate through the existing Session service instead of embedding the transcript component or copying messages. Subagent prompts use the existing FIFO delivery API, interruption stays separate, and Team controls retain quiet/wake delivery and revision-checked task reassignment.
+DSH conversation rendering remains Session-owned. Agent editors navigate through the existing Session service for the standard transcript and use DSH's generic registered-view host for sibling `conversation.view` lenses instead of copying messages or importing a view implementation. Subagent prompts use the existing FIFO delivery API, interruption stays separate, and Team controls retain quiet/wake delivery and revision-checked task reassignment.
 
 ## Alternatives considered
 

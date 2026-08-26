@@ -10,6 +10,7 @@
  */
 import type { ClientContext } from '@deepseek-ai/dsh-client-runtime/client'
 import type {} from '@deepseek-ai/dsh-client-locale/client'
+import { resolveSlotLabel } from '@deepseek-ai/dsh-client-ui-slots'
 import { DEFAULTS, type Config } from '../config-types.ts'
 import { GoodJobSettingsCard } from './SettingsCard.tsx'
 import { WorkspaceView } from './WorkspaceView.tsx'
@@ -71,6 +72,17 @@ export function apply(ctx: ClientContext, config: Config = {}): void {
   }, 'goodjob: stylesheet')
   ctx.effect(() => ctx.locale.register(NS, { zh, en }), 'goodjob: dictionaries')
   const t = ctx.locale.bind(NS)
+  const sessionViews = {
+    list: () => ctx.slots.entries('conversation.view').flatMap((entry) => {
+      const id = entry.options.id
+      return id === undefined ? [] : [{
+        id,
+        label: resolveSlotLabel(entry.options.label) ?? id,
+      }]
+    }),
+    subscribe: (listener: () => void) => ctx.slots.subscribe('conversation.view', listener),
+    version: () => ctx.slots.getVersion('conversation.view'),
+  }
   const injected = (): WorkspaceInjected => ({
     api: (ctx.get('connection') as unknown as {
       api: WorkspaceInjected['api']
@@ -80,6 +92,7 @@ export function apply(ctx: ClientContext, config: Config = {}): void {
     config: resolved,
     refreshSubagents: parentSessionId => sessionsFace(ctx).refreshSubagents(parentSessionId),
     openChild: address => sessionsFace(ctx).openSubagent(address),
+    sessionViews,
   })
   ctx.slots.inject(
     'conversation.view',

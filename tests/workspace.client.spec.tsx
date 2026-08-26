@@ -2,6 +2,7 @@
 /** Browser coverage for the native GoodJob operations workspace. */
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import type { IApiClient, JobView } from '@deepseek-ai/dsh-client-connection/client'
+import type { SessionSlotHostComponent } from '@deepseek-ai/dsh-client-ui-slots'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { DEFAULTS } from '../src/config-types.ts'
 import { groupId } from '../src/groups.ts'
@@ -52,6 +53,8 @@ function harness(overrides: {
   storage?: MemoryStorage
   observe?: ReturnType<typeof vi.fn>
   rpc?: ReturnType<typeof vi.fn>
+  sessionViews?: readonly { id: string; label: string }[]
+  sessionSlotHost?: SessionSlotHostComponent
 } = {}) {
   const observe = overrides.observe ?? vi.fn(async ({ afterSequence }: { afterSequence: number }) => ({
     result: { ok: true as const, value: {
@@ -66,6 +69,11 @@ function harness(overrides: {
   const interrupt = vi.fn(async () => ({ result: { ok: true as const, value: {} } }))
   const api = { jobs: { observe }, subagents: { prompt, interrupt } } as unknown as IApiClient
   const rpcCall = overrides.rpc ?? vi.fn(async () => ({ ok: true as const, value: { status: 'accepted' } }))
+  const sessionSlotHost: SessionSlotHostComponent = overrides.sessionSlotHost ?? ((hostProps) => (
+    hostProps.opts?.only === 'trajectory'
+      ? <div aria-label={`Trajectory for ${hostProps.sessionId}`}>Trajectory {hostProps.sessionId}</div>
+      : hostProps.opts?.fallback ?? null
+  ))
   const props = {
     domain: overrides.domain ?? domain(),
     api,
@@ -74,6 +82,8 @@ function harness(overrides: {
     storage: overrides.storage ?? new MemoryStorage(),
     onOpenSession: vi.fn(),
     onRefresh: vi.fn(),
+    sessionViews: overrides.sessionViews ?? [{ id: 'trajectory', label: 'Trajectory' }],
+    sessionSlotHost,
   }
   return { props, observe, prompt, interrupt, rpcCall }
 }
@@ -125,6 +135,47 @@ describe('GoodJobWorkspace', () => {
     expect(cursors.filter(cursor => cursor === 0)).toHaveLength(2)
     expect(cursors.filter(cursor => cursor === 1)).toHaveLength(2)
     expect(screen.getAllByLabelText('Output for build')).toHaveLength(2)
+  })
+
+  it('discovers, opens, splits, and safely degrades a registered Session view', () => {
+    const fixture = harness()
+    const view = render(<GoodJobWorkspace {...fixture.props} />)
+    fireEvent.click(within(explorer()).getByRole('button', { name: /code-agent/ }))
+    fireEvent.click(screen.getByRole('button', { name: 'Open Trajectory', exact: true }))
+    expect(screen.getByLabelText('Trajectory for agent-code')).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Close code-agent / trajectory' })).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'Split right' }))
+    expect(screen.getAllByLabelText('Trajectory for agent-code')).toHaveLength(2)
+    expect(fixture.observe).not.toHaveBeenCalled()
+    expect(fixture.prompt).not.toHaveBeenCalled()
+    expect(fixture.interrupt).not.toHaveBeenCalled()
+    expect(fixture.rpcCall).not.toHaveBeenCalled()
+
+    const unavailable: SessionSlotHostComponent = hostProps => hostProps.opts?.fallback ?? null
+    view.rerender(<GoodJobWorkspace
+      {...fixture.props}
+      sessionViews={[]}
+      sessionSlotHost={unavailable}
+    />)
+    expect(screen.getAllByRole('status')).toHaveLength(2)
+  })
+
+  it('hides absent lenses and opens different Agents views side-by-side', () => {
+    const absent = harness({ sessionViews: [] })
+    const first = render(<GoodJobWorkspace {...absent.props} />)
+    fireEvent.click(within(explorer()).getByRole('button', { name: /code-agent/ }))
+    expect(screen.queryByRole('button', { name: 'Open Trajectory', exact: true })).toBeNull()
+    first.unmount()
+
+    const fixture = harness()
+    render(<GoodJobWorkspace {...fixture.props} />)
+    fireEvent.click(within(explorer()).getByRole('button', { name: /code-agent/ }))
+    fireEvent.click(screen.getByRole('button', { name: 'Open Trajectory', exact: true }))
+    fireEvent.click(within(explorer()).getByRole('button', { name: /review-agent/ }))
+    fireEvent.click(screen.getByRole('button', { name: 'Open Trajectory to side' }))
+    fireEvent.click(screen.getByRole('button', { name: 'code-agent / trajectory' }))
+    expect(screen.getByLabelText('Trajectory for agent-code')).toBeTruthy()
+    expect(screen.getByLabelText('Trajectory for agent-review')).toBeTruthy()
   })
 
   it('splits down, keeps independent active entities, moves a tab, and closes a pane', async () => {

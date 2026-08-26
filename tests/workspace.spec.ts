@@ -1,4 +1,5 @@
 /** Presentation-only workspace state keeps stable identities without domain snapshots. */
+import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 import {
   activateEntity,
@@ -52,5 +53,31 @@ describe('workspace state', () => {
     expect(restoreWorkspace(JSON.stringify(state))).toEqual(state)
     expect(restoreWorkspace('{"panes":[{"id":"pane-1","tabs":[{"kind":"job","status":"running"}],"activeKey":"job"}]}')).toBeUndefined()
     expect(restoreWorkspace('not json')).toBeUndefined()
+  })
+
+  it('keys and restores a generic registered Session view without snapshot data', () => {
+    const trajectory = {
+      kind: 'session-view', sessionId: 'code-agent', viewId: 'trajectory',
+    } as const
+    expect(entityKey(trajectory)).toBe('view:code-agent:trajectory')
+    const state = openToSide(initialWorkspaceState(), trajectory, 'vertical')
+    expect(restoreWorkspace(JSON.stringify(state))).toEqual(state)
+    expect(restoreWorkspace(JSON.stringify({
+      ...state,
+      panes: [{
+        id: 'pane-1',
+        tabs: [{ kind: 'session-view', sessionId: 'code-agent', snapshot: {} }],
+        activeKey: 'view:code-agent:trajectory',
+      }],
+    }))).toBeUndefined()
+  })
+
+  it('uses the registered view interface without importing Trajectory internals', () => {
+    const sources = [
+      readFileSync(new URL('../src/client/index.ts', import.meta.url), 'utf8'),
+      readFileSync(new URL('../src/client/WorkspaceView.tsx', import.meta.url), 'utf8'),
+    ].join('\n')
+    expect(sources).not.toContain('@deepseek-ai/dsh-client-ui-trajectory')
+    expect(sources).not.toMatch(/ui-trajectory\/src\//u)
   })
 })

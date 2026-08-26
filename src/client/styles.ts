@@ -574,6 +574,16 @@ export const STYLES: string = `.gj-root {
 .gj-editor[hidden] { display: none; }
 .gj-editor { height: 100%; overflow: auto; padding: 14px 16px 24px; box-sizing: border-box; }
 
+.gj-sessionViewHost {
+  min-width: 0;
+  min-height: 360px;
+  height: calc(100% - 74px);
+  overflow: hidden;
+  border: 1px solid var(--dsw-border);
+  border-radius: 6px;
+}
+.gj-sessionViewUnavailable { padding: 16px; }
+
 .gj-editorHeader {
   align-items: flex-start;
   justify-content: space-between;
@@ -662,6 +672,7 @@ export const STYLES: string = `.gj-root {
   .gj-panes[data-count="4"] { display: block; }
   .gj-pane { display: none; height: 100%; }
   .gj-pane[data-focused="true"] { display: flex; }
+  .gj-sessionViewHost { min-height: 480px; height: auto; }
   .gj-overview { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .gj-metric:nth-child(2) { border-right: 0; }
   .gj-metric:nth-child(-n+2) { border-bottom: 1px solid var(--dsw-border); }

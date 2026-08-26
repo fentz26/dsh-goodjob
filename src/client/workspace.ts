@@ -8,7 +8,8 @@
  */
 
 /** Entity kinds that can occupy a GoodJob editor tab. */
-export type WorkspaceEntityKind = 'general' | 'agent' | 'job' | 'job-group' | 'wait' | 'task'
+export type WorkspaceEntityKind =
+  | 'general' | 'agent' | 'job' | 'job-group' | 'wait' | 'task' | 'session-view'
 
 /** Stable identity of one editor subject. */
 export type WorkspaceEntity =
@@ -18,6 +19,7 @@ export type WorkspaceEntity =
   | { kind: 'job-group'; groupId: string }
   | { kind: 'wait'; waitId: string }
   | { kind: 'task'; taskId: string }
+  | { kind: 'session-view'; sessionId: string; viewId: string }
 
 /** Stable client identity for deduplication and persistence. */
 export function entityKey(entity: WorkspaceEntity): string {
@@ -28,6 +30,7 @@ export function entityKey(entity: WorkspaceEntity): string {
     case 'job-group': return `group:${entity.groupId}`
     case 'wait': return `wait:${entity.waitId}`
     case 'task': return `task:${entity.taskId}`
+    case 'session-view': return `view:${entity.sessionId}:${entity.viewId}`
   }
 }
 
@@ -202,6 +205,7 @@ export function restoreWorkspace(raw: string | null): WorkspaceState | undefined
 function isWorkspaceEntityKind(value: unknown): value is WorkspaceEntityKind {
   return value === 'general' || value === 'agent' || value === 'job'
     || value === 'job-group' || value === 'wait' || value === 'task'
+    || value === 'session-view'
 }
 
 function isWorkspaceEntity(value: unknown): value is WorkspaceEntity {
@@ -215,5 +219,7 @@ function isWorkspaceEntity(value: unknown): value is WorkspaceEntity {
     case 'job-group': return typeof candidate.groupId === 'string'
     case 'wait': return typeof candidate.waitId === 'string'
     case 'task': return typeof candidate.taskId === 'string'
+    case 'session-view': return typeof candidate.sessionId === 'string'
+      && typeof candidate.viewId === 'string'
   }
 }

@@ -10,13 +10,13 @@ GoodJob 的会话标题栏弹出面板能够列出 Job、Wait、Subagent、Group
 
 ## Decision
 
-GoodJob 占用 DSH 原生 `conversation.view` 槽位，并提供只在稳定标签地址中保存权威标识符的内部工作区。`general`、`agent:<sessionId>`、`job:<sessionId>:<jobId>`、`group:<groupId>`、`wait:<waitId>` 和 `task:<taskId>` 在每次渲染时从 DSH 镜像、Session 投影或可选适配器解析当前值。
+GoodJob 占用 DSH 原生 `conversation.view` 槽位，并提供只在稳定标签地址中保存权威标识符的内部工作区。`general`、`agent:<sessionId>`、`job:<sessionId>:<jobId>`、`group:<groupId>`、`wait:<waitId>` 和 `task:<taskId>` 在每次渲染时从 DSH 镜像、Session 投影或可选适配器解析当前值。`view:<sessionId>:<viewId>` 表示已注册的展示透镜，不保存承载视图的快照。
 
 客户端只按根 Session 标识符持久化已打开地址、窗格位置、活动标签和 Explorer 折叠状态。它从不持久化状态、输出、Wait 结算、任务字段、邮箱消息或执行状态。普通打开操作聚焦已有地址，而“在侧边打开”可在另一窗格挂载相同地址。每个已挂载 Job 编辑器拥有独立的 `jobs.observe` 游标和有界浏览器缓冲区，因此对比视图保持非消费语义，也不能推进面向模型的游标。
 
 General 是目标计数、带时间戳事件、注意项和显式关系的只读组合。图边必须来自 Session 谱系、Job 所有权或声明的相关标识符、Group 成员关系、Team 任务所有权或 Wait 叶标识符。缺少时间戳或关系时直接省略，不生成合成活动项或推断边。
 
-DSH 对话渲染仍由 Session 所有。Agent 编辑器通过现有 Session 服务导航，不嵌入对话组件，也不复制消息。Subagent 提示使用现有 FIFO 投递 API，中断保持独立，Team 控件保留 quiet/wake 投递以及带修订检查的任务重新分配。
+DSH 对话渲染仍由 Session 所有。Agent 编辑器通过现有 Session 服务打开标准对话记录，并通过 DSH 通用注册视图宿主打开同级 `conversation.view` 展示透镜，而不复制消息或导入视图实现。Subagent 提示使用现有 FIFO 投递 API，中断保持独立，Team 控件保留 quiet/wake 投递以及带修订检查的任务重新分配。
 
 ## Alternatives considered
 
