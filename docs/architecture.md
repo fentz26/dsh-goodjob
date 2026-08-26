@@ -52,9 +52,13 @@ The bundle row mounts one service that:
 
 1. registers the `goodjob` settings namespace,
 2. detects its required capability seams at load (`src/detect.ts`) and prints actionable diagnostics when an installation lacks them,
-3. installs pure `goodjob/waits`, `goodjob/groups`, and `goodjob/teams` projection units,
+3. installs pure projection units — `goodjob/waits`, `goodjob/groups`, `goodjob/teams` from GoodJob-owned event shapes plus `goodjob/workflows` and `goodjob/schedules` folded structurally from the durable `tool-workflow/*` and `schedule/change` events published by DSH subsystems,
 4. registers the compact `job_group` tool and `team-task` Wait provider when their owning registries are present, and
 5. mounts a loopback-only RPC channel for recursive descendant reads and optional Team controls.
+
+The upstream `goal` Session projection is consumed directly instead of mirrored: GoodJob never copies state an upstream authority already exposes as a projection.
+
+Feature documentation lives under [`docs/features/`](features/): [goals](features/goals.md), [workflows](features/workflows.md), [schedules](features/schedules.md), and the [attention model](features/attention.md) covering Needs Attention derivation, blocking reasons, and "Why idle?".
 
 Seams absent at load may still mount later in the same composition; the service attaches lazily through the `internal/service` event, and every disposer — immediate or late — drains through a single teardown effect on the service fiber.
 
