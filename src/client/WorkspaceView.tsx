@@ -10,9 +10,7 @@ import {
 import type {} from '@deepseek-ai/dsh-client-runtime/client'
 import type {} from '@deepseek-ai/dsh-client-ui-conversation/client'
 import type { IApiClient, JobOutputView, JobView, SessionId } from '@deepseek-ai/dsh-client-connection/client'
-import type {
-  InjectFace, PropsLocale, PropsRuntime, SessionSlotHostComponent,
-} from '@deepseek-ai/dsh-client-ui-slots'
+import type { InjectFace, PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 import type { Config } from '../config-types.ts'
 import type {
   GoodJobGroupView,
@@ -86,6 +84,19 @@ export interface WorkspaceInjected {
 export type WorkspaceViewProps = PropsRuntime<'conversation.view'>
   & PropsLocale<typeof NS> & InjectFace<WorkspaceInjected>
 
+/**
+ * Structural face of an upstream session slot host. Unreleased DeepSeek
+ * Harness builds inject this component into session-scoped slot entries so a
+ * registered view can be hosted for an explicit Session; published builds
+ * leave the prop undefined and GoodJob renders its own fallback instead.
+ */
+export type SessionSlotHostComponent = (props: {
+  name: string
+  sessionId: SessionId
+  owner: { inspect: null; onInspectDone: () => void }
+  opts?: { only?: string; fallback?: React.ReactNode }
+}) => React.ReactNode
+
 /** Props for the presentation-only workspace component used by browser tests. */
 export interface GoodJobWorkspaceProps {
   domain: WorkspaceDomain
@@ -110,8 +121,9 @@ function isLive(job: JobView): boolean {
 export function WorkspaceView(props: WorkspaceViewProps) {
   const {
     sessionId, useSessions, useProjection, api, rpc, config, refreshSubagents, openChild,
-    sessionViews, SessionSlotHost,
+    sessionViews,
   } = props
+  const SessionSlotHost = (props as { SessionSlotHost?: SessionSlotHostComponent }).SessionSlotHost
   useSyncExternalStore(sessionViews.subscribe, sessionViews.version)
   const useSessionsTyped = useSessions as unknown as <T,>(selector: (state: {
     jobsBySession: Record<string, readonly JobView[] | undefined>
