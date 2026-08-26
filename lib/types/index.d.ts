@@ -36,6 +36,8 @@ export default class GoodJobService extends Service {
     /** Whether each seam has been wired (immediately or late). */
     private settingsAttached;
     private projectionsAttached;
+    /** Disposers of seam registrations, drained by the seam-teardown effect. */
+    private lateDisposers;
     /**
      * Wire every seam present at construction and report the absent ones.
      * @param detected - seams resolved from the global store at load.

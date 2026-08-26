@@ -77,6 +77,17 @@ export default class GoodJobService extends Service {
     // A seam absent at load may still mount later in the same composition;
     // `internal/service` fires on every binding, so attach lazily. The
     // diagnostics name the floor rather than pretending permanence.
+    // Late seam attachments cannot create their own effects from an event
+    // callback, so every disposer — immediate or late — drains through this
+    // single teardown effect on the service fiber.
+    this.lateDisposers = new Set()
+    ctx.effect(
+      () => () => {
+        for (const dispose of this.lateDisposers) dispose()
+        this.lateDisposers.clear()
+      },
+      'goodjob: seam teardown',
+    )
     this.attachSeams(detected)
     ctx.on('internal/service', (name: string, value: unknown) => {
       if (name === 'settings' && this.settingsAttached === false) {
@@ -93,6 +104,8 @@ export default class GoodJobService extends Service {
   /** Whether each seam has been wired (immediately or late). */
   private settingsAttached = false
   private projectionsAttached = false
+  /** Disposers of seam registrations, drained by the seam-teardown effect. */
+  private lateDisposers!: Set<() => void>
 
   /**
    * Wire every seam present at construction and report the absent ones.
@@ -109,10 +122,8 @@ export default class GoodJobService extends Service {
    * @param settings - the settings registry seam.
    */
   private attachSettings(settings: NonNullable<DetectedSeams['settings']>): void {
-    this.ctx.effect(
-      () => settings.register('goodjob', Config),
-      'goodjob: settings namespace',
-    )
+    this.settingsAttached = true
+    this.lateDisposers.add(settings.register('goodjob', Config))
   }
 
   /**
@@ -123,19 +134,17 @@ export default class GoodJobService extends Service {
    * @param registry - the session-projection registry seam.
    */
   private attachProjections(registry: NonNullable<DetectedSeams['projections']>): void {
-    this.ctx.effect(
-      () => registry.register({
-        key: 'goodjob/waits',
-        stateSchema: goodJobWaitsSchema,
-        init: () => null,
-        apply: (state, event) => applyWaitEvent(state, event) as GoodJobWaitsProjection | null,
-        stateVersion: WAITS_STATE_VERSION,
-        wire: {
-          viewSchema: goodJobWaitsSchema,
-          view: state => state,
-        },
-      }),
-      'goodjob: waits projection',
-    )
+    this.projectionsAttached = true
+    this.lateDisposers.add(registry.register({
+      key: 'goodjob/waits',
+      stateSchema: goodJobWaitsSchema,
+      init: () => null,
+      apply: (state, event) => applyWaitEvent(state, event) as GoodJobWaitsProjection | null,
+      stateVersion: WAITS_STATE_VERSION,
+      wire: {
+        viewSchema: goodJobWaitsSchema,
+        view: state => state,
+      },
+    }))
   }
 }
