@@ -43,7 +43,7 @@ const client: UserConfig = {
     neverBundle: specifier => CLIENT_EXTERNALS.includes(specifier),
     alwaysBundle: specifier => !CLIENT_EXTERNALS.includes(specifier),
   },
-  banner: `window.__ModuleLoader__.load({ id: ${JSON.stringify('dsh-goodjob')}, factory: (require) => {`,
+  banner: `window.__ModuleLoader__.load({ id: ${JSON.stringify('dsh-goodjob')}, factory: (require) => { const module = { exports: {} }; const exports = module.exports;`,
   footer: 'return module.exports; } });',
   // The wire paths are lib/index.js and lib/client.js (package.json exports).
   outExtensions: () => ({ js: '.js', dts: '.d.ts' }),

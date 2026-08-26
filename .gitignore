@@ -3,3 +3,4 @@ node_modules/
 .DS_Store
 dsh.paths.json
 tsconfig.dev.json
+.playwright-mcp/
