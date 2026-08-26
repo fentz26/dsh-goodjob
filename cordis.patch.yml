@@ -1,0 +1,12 @@
+# The GoodJob bundle patch: one composition row.
+# Applied after the dsh-base and dsh-web-app layers.
+#
+# GoodJob owns no exclusive authority: it registers the `goodjob` settings
+# namespace and folds `wait/change` Session events into the shared session
+# projection feed, and its browser half renders jobs, waits, and subagents
+# through existing client mirrors. The package is dual-face: this row mounts
+# the host half, and the same package's `dsh.client` declaration puts the
+# operations UI on the web roster. Removing this bundle returns the
+# composition to stock DSH.
+- id: goodjob
+  name: dsh-goodjob

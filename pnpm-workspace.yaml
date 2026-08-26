@@ -1,0 +1,7 @@
+packages:
+  - .
+
+# Mirror the profile composer's pnpm settings: peers resolve from the running
+# DeepSeek Harness installation at runtime, never from the npm registry.
+autoInstallPeers: false
+nodeLinker: hoisted
