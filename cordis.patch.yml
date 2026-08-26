@@ -8,5 +8,6 @@
 # the host half, and the same package's `dsh.client` declaration puts the
 # operations UI on the web roster. Removing this bundle returns the
 # composition to stock DSH.
-- id: goodjob
-  name: dsh-goodjob
+- insert:
+    - id: goodjob
+      name: dsh-goodjob
