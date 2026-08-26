@@ -1,7 +1,7 @@
 {
   "name": "dsh-goodjob",
   "description": "GoodJob — background jobs, waits, and agent operations for DeepSeek Harness",
-  "version": "0.2.0",
+  "version": "2026.8.0",
   "type": "module",
   "main": "lib/index.js",
   "types": "lib/types/index.d.ts",
@@ -76,7 +76,7 @@
   },
   "files": [
     "cordis.patch.yml",
-    "docs/workspace.md",
+    "docs",
     "SECURITY.md",
     "lib/index.js",
     "lib/client.js",
