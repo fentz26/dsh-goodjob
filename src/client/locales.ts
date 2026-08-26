@@ -19,6 +19,7 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
 /** Dictionary key union for the `goodjob` namespace. */
 export type Key =
   | 'title'
+  | 'view.workspace'
   | 'section.agents'
   | 'section.jobs'
   | 'section.waits'
@@ -50,6 +51,7 @@ export type Key =
 /** Chinese product copy. */
 export const zh: Record<Key, string> = {
   'title': 'GoodJob 运维面板',
+  'view.workspace': 'GoodJob',
   'section.agents': '子代理',
   'section.jobs': '后台任务',
   'section.waits': '等待',
@@ -82,6 +84,7 @@ export const zh: Record<Key, string> = {
 /** English copy. */
 export const en: Record<Key, string> = {
   'title': 'GoodJob Operations',
+  'view.workspace': 'GoodJob',
   'section.agents': 'Subagents',
   'section.jobs': 'Jobs',
   'section.waits': 'Waits',

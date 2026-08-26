@@ -2,7 +2,7 @@
 
 **Background jobs, waits, and agent operations for [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness).**
 
-GoodJob is an out-of-tree DeepSeek Harness plugin (a *bundle*). It gives you one operations view over Jobs, durable Job Groups, Waits, recursive Subagents, and optional Agent Teams without creating a second scheduler, task board, event bus, or conversation surface. Execution remains owned by the DSH capability that started it.
+GoodJob is an out-of-tree DeepSeek Harness plugin (a *bundle*). It gives you an IDE-style operations workspace over Jobs, durable Job Groups, Waits, recursive Subagents, and optional Agent Teams without creating a second scheduler, task board, event bus, transcript store, or conversation surface. Execution remains owned by the DSH capability that started it.
 
 ```bash
 npx @deepseek-ai/dsh plugin --profile web add github:fentz26/dsh-goodjob
@@ -12,21 +12,23 @@ npx @deepseek-ai/dsh plugin --profile web add github:fentz26/dsh-goodjob
 
 ## What GoodJob does
 
-### Operations view (web profile)
+### Operations workspace (web profile)
 
-A `GoodJob` action in every session header opens one capability-aware panel:
+The native `GoodJob` conversation view opens on `General`, with an Explorer, stable internal tabs, and one to four split panes. Ordinary open focuses an existing entity tab; **Open to side**, split right/down, move, close, and reopen operate only on presentation state. On narrow screens the Explorer collapses and the focused pane remains available.
 
-- **Subagents** — every descendant with lineage depth, mode, activity, live model when available, and related Job ids. **Open**, **Message**, and **Interrupt** use the existing child transcript and subagent APIs; interruption ends only the current turn.
-- **Jobs** — the session's background jobs with live status, exact elapsed time, and independently observed output. Reading logs never advances the model-facing cursor.
+`General` answers what is happening now with objective counts, attention state, timestamped activity, and a clickable relationship graph. Every value is projected from the capabilities below:
+
+- **Agents and Subagents** — every descendant with lineage depth, mode, activity, live model when available, related Job ids, Team mailbox activity, and supported actions. **Open Session** navigates to the existing DSH conversation; **Message** uses FIFO prompt delivery and **Interrupt** remains explicit.
+- **Jobs** — background Jobs across the displayed Agent lineage with live status, exact elapsed time, bounded searchable output, and one independent `jobs.observe` cursor per editor instance. Reading logs never advances the model-facing cursor.
 - **Job Groups** — durable Session-local labels over existing Job ids. A group shows exact member states and settled counts, never estimated progress. A Job may belong to several groups.
 - **Waits** — durable wait intents folded read-only from the `wait/change` Session events their owning capability logs: mode (`any`/`all`), per-leaf provider and settlement state, winning leaf for admitted races, and lifecycle (`waiting` → `ready` → `resumed`, or `cancelled`).
-- **Agent Team** — shown only when Agent Teams is composed. It projects the Team-owned roster, tasks, and mailbox, with Team Lead-authorized message, wake, interrupt, and revision-checked reassignment controls. Human messages are labeled `Human via GoodJob, authorized as Team Lead` in the recipient transcript.
+- **Agent Team** — shown only when Agent Teams is composed. It projects the Team-owned roster, tasks, and mailbox, with Team Lead-authorized quiet/wake messages, replies, interrupt, task navigation, and revision-checked reassignment controls. Human messages are labeled `Human via GoodJob, authorized as Team Lead` in the recipient transcript.
 
-Opening the panel and reading anything in it never wakes an agent and never spends tokens.
+Workspace layout persistence stores only entity addresses, tabs, panes, and Explorer state in local storage. A refresh resolves fresh DSH projections and never restores execution state. Opening the workspace, General, or an entity editor never wakes an Agent and never spends tokens. See [the workspace architecture](docs/workspace.md) for identity, projection, observer, and rendering details.
 
 ### Settings → Plugins → GoodJob
 
-A card in the existing configurable-plugins tab controls visibility for Jobs, Groups, Waits, Subagents, and optional Team tasks/mailbox, plus active-group expansion and job-output following. Writes use the standard revision-checked settings API.
+A card in the existing configurable-plugins tab controls visibility for Jobs, Groups, Waits, Subagents, optional Team tasks/mailbox, completed Explorer rows, activity, and graph sections, plus workspace restoration and job-output following. Writes use the standard revision-checked settings API.
 
 ### Model-facing Job Groups
 
@@ -47,7 +49,7 @@ The bundle row mounts one service that:
 4. registers the compact `job_group` tool and `team-task` Wait provider when their owning registries are present, and
 5. mounts a loopback-only RPC channel for recursive descendant reads and optional Team controls.
 
-Every registration is an effect on the service fiber: uninstalling or disabling GoodJob removes the projection key, the settings namespace, the header action, and the card together, and leaves durable DSH history untouched.
+Every registration is an effect on the service fiber: uninstalling or disabling GoodJob removes the projection key, the settings namespace, the native view, and the card together, and leaves durable DSH history untouched.
 
 ## Compatibility
 
@@ -98,6 +100,9 @@ Uninstalling removes the dependency and bundle layer. `wait/change` and `team/*`
 - **Optional Teams runtime.** Durable Team events can be projected without the service, but live controls require the Team Lead session and Agent Teams service to be composed.
 - **Waits are read-only here.** Creating waits stays with the model-facing tools (`wait_create` / `wait_list` / `wait_cancel`); GoodJob only visualizes intent.
 - Team-task completion is the only additional Wait provider in v0.2. Message and subagent-report waits are deferred until their owning services expose an unambiguous from-now cursor.
+- **Transcript navigation, not embedding.** DSH does not expose its conversation renderer as a reusable nested component, so Agent tabs navigate to the owning Session and never copy transcript state.
+- **Simple editor groups.** The workspace supports four panes but not nested editor groups, pinned tabs, drag-and-drop, or recently opened history.
+- **No synthetic activity.** Task transitions without authoritative timestamps, adapter refreshes, and relationships not represented by ids are omitted.
 
 ## Development
 
@@ -130,7 +135,8 @@ src/groups.ts       durable Job Groups and the job_group tool
 src/teams.ts        Team projection and team-task Wait provider
 src/rpc.ts          recursive descendants and Team controls
 src/types.ts        wire values + structural faces of consumed DSH seams
-src/client/         browser half: entry, operations view, settings card
+src/client/         browser half: entry, workspace state/view, projections, settings card
+docs/workspace.md   workspace ownership, identity, persistence, and rendering reference
 scripts/setup-dev.mjs  local link setup for development against DSH sources
 tests/              vitest suites (folds, tools, lifecycle, browser rendering)
 lib/                committed build output — installs need no build step

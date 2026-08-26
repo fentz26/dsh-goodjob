@@ -21,4 +21,11 @@ export const ConfigSchema: z<Config> = z.object({
   showTeamMailbox: z.boolean().default(DEFAULTS.showTeamMailbox),
   showTeamTasks: z.boolean().default(DEFAULTS.showTeamTasks),
   autoFollowOutput: z.boolean().default(DEFAULTS.autoFollowOutput),
+  restoreWorkspace: z.boolean().default(DEFAULTS.restoreWorkspace),
+  showActivityFeed: z.boolean().default(DEFAULTS.showActivityFeed),
+  showGraph: z.boolean().default(DEFAULTS.showGraph),
+  showCompletedJobs: z.boolean().default(DEFAULTS.showCompletedJobs),
+  showCompletedTasks: z.boolean().default(DEFAULTS.showCompletedTasks),
+  maxRenderedOutputChars: z.number().min(10_000).max(1_000_000).default(DEFAULTS.maxRenderedOutputChars),
+  outputObserveIntervalMs: z.number().min(250).max(10_000).default(DEFAULTS.outputObserveIntervalMs),
 })

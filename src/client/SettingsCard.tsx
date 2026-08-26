@@ -30,6 +30,11 @@ const FIELDS = [
   ['showTeamMailbox', 'Team mailbox'],
   ['showTeamTasks', 'Team tasks'],
   ['autoFollowOutput', 'Auto-follow job output'],
+  ['restoreWorkspace', 'Restore open tabs and split layout'],
+  ['showActivityFeed', 'Activity feed'],
+  ['showGraph', 'Relationship graph'],
+  ['showCompletedJobs', 'Completed Jobs in Explorer'],
+  ['showCompletedTasks', 'Completed tasks in Explorer'],
 ] as const
 
 /** One field's key in the GoodJob config. */
@@ -67,6 +72,13 @@ export function GoodJobSettingsCard({ api }: SettingsCardProps) {
             showTeamMailbox: value?.showTeamMailbox ?? true,
             showTeamTasks: value?.showTeamTasks ?? true,
             autoFollowOutput: value?.autoFollowOutput ?? true,
+            restoreWorkspace: value?.restoreWorkspace ?? true,
+            showActivityFeed: value?.showActivityFeed ?? true,
+            showGraph: value?.showGraph ?? true,
+            showCompletedJobs: value?.showCompletedJobs ?? true,
+            showCompletedTasks: value?.showCompletedTasks ?? false,
+            maxRenderedOutputChars: value?.maxRenderedOutputChars ?? 200_000,
+            outputObserveIntervalMs: value?.outputObserveIntervalMs ?? 1_000,
           })
         }
       })

@@ -12,7 +12,7 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
     }
 }
 /** Dictionary key union for the `goodjob` namespace. */
-export type Key = 'title' | 'section.agents' | 'section.jobs' | 'section.waits' | 'agents.empty' | 'agents.currentTask' | 'agents.lastActivity' | 'agents.elapsed' | 'agents.open' | 'agents.message' | 'agents.interrupt' | 'agents.messagePlaceholder' | 'agents.send' | 'agents.interruptConfirm' | 'jobs.empty' | 'jobs.owner' | 'jobs.logs' | 'waits.empty' | 'waits.mode.any' | 'waits.mode.all' | 'waits.status.pending' | 'waits.status.ready' | 'waits.status.dispatched' | 'waits.status.cancelled' | 'status.running' | 'status.idle' | 'status.inactive' | 'common.close';
+export type Key = 'title' | 'view.workspace' | 'section.agents' | 'section.jobs' | 'section.waits' | 'agents.empty' | 'agents.currentTask' | 'agents.lastActivity' | 'agents.elapsed' | 'agents.open' | 'agents.message' | 'agents.interrupt' | 'agents.messagePlaceholder' | 'agents.send' | 'agents.interruptConfirm' | 'jobs.empty' | 'jobs.owner' | 'jobs.logs' | 'waits.empty' | 'waits.mode.any' | 'waits.mode.all' | 'waits.status.pending' | 'waits.status.ready' | 'waits.status.dispatched' | 'waits.status.cancelled' | 'status.running' | 'status.idle' | 'status.inactive' | 'common.close';
 /** Chinese product copy. */
 export declare const zh: Record<Key, string>;
 /** English copy. */

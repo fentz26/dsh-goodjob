@@ -75,6 +75,7 @@
   },
   "files": [
     "cordis.patch.yml",
+    "docs/workspace.md",
     "lib/index.js",
     "lib/client.js",
     "lib/types/**/*.d.ts"

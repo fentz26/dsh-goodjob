@@ -1,9 +1,9 @@
 /**
- * GoodJob browser half entry: locale dictionaries, the session-header
- * operations action, and the Settings → Plugins card.
+ * GoodJob browser half entry: locale dictionaries, the native operations
+ * workspace, and the Settings → Plugins card.
  *
  * Registrations are effects of this plugin's fiber, so disabling the bundle
- * removes the header action, the card, and the dictionaries together. The
+ * removes the view, the card, and the dictionaries together. The
  * injected faces close over this apply's ctx only; components receive plain
  * data and callbacks.
  * @module dsh-goodjob/client
@@ -11,9 +11,9 @@
 import type { ClientContext } from '@deepseek-ai/dsh-client-runtime/client'
 import type {} from '@deepseek-ai/dsh-client-locale/client'
 import { DEFAULTS, type Config } from '../config-types.ts'
-import { OperationsAction } from './OperationsAction.tsx'
-import type { OperationsInjected } from './OperationsAction.tsx'
 import { GoodJobSettingsCard } from './SettingsCard.tsx'
+import { WorkspaceView } from './WorkspaceView.tsx'
+import type { WorkspaceInjected } from './WorkspaceView.tsx'
 import { en, NS, zh } from './locales.ts'
 import { STYLES } from './styles.ts'
 
@@ -37,7 +37,7 @@ function sessionsFace(ctx: ClientContext): SessionsFace {
 }
 
 /**
- * Client plugin body: register the dictionaries, the header action, and the
+ * Client plugin body: register the dictionaries, native workspace view, and
  * settings card keyed by the `goodjob` namespace.
  * @param ctx - client root context.
  * @param config - host-side config echoed through the client graph.
@@ -53,6 +53,13 @@ export function apply(ctx: ClientContext, config: Config = {}): void {
     showTeamMailbox: config.showTeamMailbox ?? DEFAULTS.showTeamMailbox,
     showTeamTasks: config.showTeamTasks ?? DEFAULTS.showTeamTasks,
     autoFollowOutput: config.autoFollowOutput ?? DEFAULTS.autoFollowOutput,
+    restoreWorkspace: config.restoreWorkspace ?? DEFAULTS.restoreWorkspace,
+    showActivityFeed: config.showActivityFeed ?? DEFAULTS.showActivityFeed,
+    showGraph: config.showGraph ?? DEFAULTS.showGraph,
+    showCompletedJobs: config.showCompletedJobs ?? DEFAULTS.showCompletedJobs,
+    showCompletedTasks: config.showCompletedTasks ?? DEFAULTS.showCompletedTasks,
+    maxRenderedOutputChars: config.maxRenderedOutputChars ?? DEFAULTS.maxRenderedOutputChars,
+    outputObserveIntervalMs: config.outputObserveIntervalMs ?? DEFAULTS.outputObserveIntervalMs,
   }
   ctx.effect(() => {
     if (document.querySelector('style[data-plugin="dsh-goodjob"]') !== null) return () => {}
@@ -63,26 +70,27 @@ export function apply(ctx: ClientContext, config: Config = {}): void {
     return () => { tag.remove() }
   }, 'goodjob: stylesheet')
   ctx.effect(() => ctx.locale.register(NS, { zh, en }), 'goodjob: dictionaries')
+  const t = ctx.locale.bind(NS)
+  const injected = (): WorkspaceInjected => ({
+    api: (ctx.get('connection') as unknown as {
+      api: WorkspaceInjected['api']
+      rpc: WorkspaceInjected['rpc']
+    }).api,
+    rpc: (ctx.get('connection') as unknown as { rpc: WorkspaceInjected['rpc'] }).rpc,
+    config: resolved,
+    refreshSubagents: parentSessionId => sessionsFace(ctx).refreshSubagents(parentSessionId),
+    openChild: address => sessionsFace(ctx).openSubagent(address),
+  })
   ctx.slots.inject(
-    'conversation.session.header.actions',
+    'conversation.view',
     () => ctx.slots.register({
-      name: 'conversation.session.header.actions',
-      id: 'goodjob-operations',
+      name: 'conversation.view',
+      id: 'goodjob',
       order: 30,
       locale: NS,
-      inject: (): OperationsInjected => ({
-        api: (ctx.get('connection') as unknown as {
-          api: OperationsInjected['api']
-          rpc: OperationsInjected['rpc']
-        }).api,
-        rpc: (ctx.get('connection') as unknown as {
-          rpc: OperationsInjected['rpc']
-        }).rpc,
-        config: resolved,
-        refreshSubagents: parentSessionId => (sessionsFace(ctx)).refreshSubagents(parentSessionId),
-        openChild: address => (sessionsFace(ctx)).openSubagent(address),
-      }),
-    }, OperationsAction),
+      label: () => t('view.workspace'),
+      inject: injected,
+    }, WorkspaceView),
   )
   ctx.slots.inject('settings.plugin.item', function* () {
     yield ctx.slots.register({
@@ -90,7 +98,7 @@ export function apply(ctx: ClientContext, config: Config = {}): void {
       key: 'goodjob',
       locale: NS,
       inject: () => ({
-        api: (ctx.get('connection') as unknown as { api: OperationsInjected['api'] }).api,
+        api: (ctx.get('connection') as unknown as { api: WorkspaceInjected['api'] }).api,
       }),
     }, GoodJobSettingsCard)
   })
