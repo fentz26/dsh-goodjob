@@ -40,6 +40,13 @@ const LINKED = {
   '@deepseek-ai/dsh-client-ui-conversation': 'packages/client/ui-conversation',
   '@deepseek-ai/dsh-client-ui-settings-plugins': 'packages/client/ui-settings-plugins',
   '@deepseek-ai/dsh-client-ui-slots': 'packages/client/ui-slots',
+  '@deepseek-ai/dsh-session-projection': 'packages/session/session-projection',
+}
+
+/** Type-outlet subpaths that need their own declaration mapping. */
+const SUBPATH_TYPES = {
+  '@deepseek-ai/dsh-session-projection/types':
+    'packages/session/session-projection/lib/types/types.d.ts',
 }
 
 /** npm packages that only exist for local development. */
@@ -104,6 +111,9 @@ if (undo) {
   const typeEntries = {}
   for (const [name, relative] of Object.entries(LINKED)) {
     Object.assign(paths, entriesFor(name, relative))
+  }
+  for (const [specifier, target] of Object.entries(SUBPATH_TYPES)) {
+    if (existsSync(resolve(dshHome, target))) typeEntries[specifier] = [`${dshHomeEnv}/${target}`]
   }
   writeFileSync(pathsFile, `${JSON.stringify({ compilerOptions: { paths } }, undefined, 2)}\n`)
   const devConfig = {

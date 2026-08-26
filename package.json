@@ -1,6 +1,6 @@
 {
   "name": "dsh-goodjob",
-  "description": "GoodJob \u2014 background jobs, waits, and agent operations for DeepSeek Harness",
+  "description": "GoodJob — background jobs, waits, and agent operations for DeepSeek Harness",
   "version": "0.1.0",
   "type": "module",
   "main": "lib/index.js",
@@ -31,11 +31,12 @@
     }
   },
   "scripts": {
-    "build": "tsc -p tsconfig.json && tsdown",
+    "build": "node scripts/build.mjs",
     "build:dev": "tsc -p tsconfig.dev.json && tsdown",
     "test": "vitest run",
     "setup-dev": "node scripts/setup-dev.mjs",
-    "setup-dev:undo": "node scripts/setup-dev.mjs --undo"
+    "setup-dev:undo": "node scripts/setup-dev.mjs --undo",
+    "build:standalone": "tsc -p tsconfig.json && tsdown"
   },
   "license": "MIT",
   "repository": {
