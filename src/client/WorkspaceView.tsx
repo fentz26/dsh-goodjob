@@ -24,6 +24,7 @@ import type {
 } from '../types.ts'
 import { toAgentRow, type AgentRow } from './AgentsList.tsx'
 import { deriveAttention, type AttentionItem } from './attention.ts'
+import { deriveOperationsDelta, type DeltaAnchor, type DeltaItem } from './delta.ts'
 import { mapSearchResults, type SearchMappedResult, type SessionSearchHit } from './search.ts'
 import { usageRows, formatTokens, type TokenUsageLike } from './usage.ts'
 import { NS } from './locales.ts'
@@ -677,6 +678,86 @@ function EditorTitle(props: {
   )
 }
 
+/**
+ * "What changed" section: deterministic delta against the presentation-local
+ * last-visit anchor. The anchor is the only stored state — a timestamp under
+ * the workspace's storage namespace; no domain copies are ever persisted.
+ */
+function WhatChanged(props: {
+  domain: WorkspaceDomain
+  storage?: Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>
+  onOpen(entity: WorkspaceEntity): void
+}) {
+  const storageKey = `goodjob.delta.v1:${props.domain.rootSessionId}`
+  const visitStartedAt = useRef(Date.now())
+  const [anchorAt, setAnchorAt] = useState<number | undefined>(() => {
+    const raw = props.storage?.getItem(storageKey)
+    const parsed = raw === undefined || raw === null || raw === '' ? Number.NaN : Number(raw)
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : undefined
+  })
+  const anchor: DeltaAnchor = anchorAt === undefined ? { kind: 'first-visit' } : { kind: 'last-visit', at: anchorAt }
+  const delta = useMemo(() => deriveOperationsDelta(props.domain, anchor, Date.now()), [props.domain, anchorAt])
+
+  // Leaving General records when this visit began, so the next visit shows
+  // everything authored since then — even events that happened mid-visit.
+  useEffect(() => () => {
+    const raw = props.storage?.getItem(storageKey)
+    const previous = Number(raw)
+    const at = Number.isFinite(previous) ? Math.max(previous, visitStartedAt.current) : visitStartedAt.current
+    props.storage?.setItem(storageKey, String(at))
+  }, [props.storage, storageKey])
+
+  const markSeen = (): void => {
+    const now = Date.now()
+    visitStartedAt.current = now
+    setAnchorAt(now)
+    props.storage?.setItem(storageKey, String(now))
+  }
+
+  const entityFor = (item: DeltaItem): WorkspaceEntity | undefined => {
+    switch (item.entityKind) {
+      case 'job': return item.sessionId === undefined ? undefined : { kind: 'job', sessionId: item.sessionId, jobId: item.entityId }
+      case 'wait': return { kind: 'wait', waitId: item.entityId }
+      case 'job-group': return { kind: 'job-group', groupId: item.entityId }
+      case 'goal': return { kind: 'goal' }
+      case 'schedule': return { kind: 'schedule', scheduleId: item.entityId }
+      case 'message': return item.sessionId === undefined ? undefined : { kind: 'agent', sessionId: item.sessionId }
+    }
+  }
+
+  return (
+    <section className="gj-section">
+      <h3 className="gj-sectionTitle">What changed</h3>
+      {anchor.kind === 'first-visit'
+        ? <p className="gj-quiet">First visit in this browser — changes are tracked from now on.</p>
+        : delta.items.length === 0
+          ? <p className="gj-quiet">Nothing authoritative changed since the last visit.</p>
+          : (
+            <ul className="gj-list" aria-label="Operations delta">
+              {delta.items.map(item => {
+                const entity = entityFor(item)
+                return (
+                  <li key={item.id} className="gj-listRow gj-attention">
+                    <span className="gj-badge" data-severity={item.severity === 'failure' ? 'error' : item.severity === 'attention' ? 'warning' : 'info'}>{item.entityKind}</span>
+                    <button type="button" className="gj-linkButton gj-rowMain" disabled={entity === undefined} onClick={() => { if (entity !== undefined) props.onOpen(entity) }}>{item.change}</button>
+                    {item.authoritativeAt === undefined ? null : <time className="gj-meta">{new Date(item.authoritativeAt).toLocaleTimeString()}</time>}
+                  </li>
+                )
+              })}
+            </ul>
+          )}
+      {anchor.kind === 'last-visit'
+        ? (
+          <p className="gj-quiet">
+            {`Since last visit (${new Date(anchor.at).toLocaleString()}) · derived only from authoritative timestamps · `}
+            <button type="button" className="gj-linkButton" onClick={markSeen}>Mark seen</button>
+          </p>
+        )
+        : null}
+    </section>
+  )
+}
+
 function GeneralEditor(props: EntityEditorProps) {
   const { domain, config, onOpen } = props
   const allAgents = leadAndAgents(domain)
@@ -748,6 +829,9 @@ function GeneralEditor(props: EntityEditorProps) {
               </ul>
             )}
         </section>
+      ) : null}
+      {config.showRecentChanges ? (
+        <WhatChanged domain={domain} storage={props.storage} onOpen={onOpen} />
       ) : null}
       {config.showUsage && domain.usage !== undefined && usageRows(domain.usage).length > 0 ? (
         <section className="gj-section">

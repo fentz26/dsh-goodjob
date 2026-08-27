@@ -62,6 +62,7 @@ export function apply(ctx: ClientContext, config: Config = {}): void {
     showSchedules: config.showSchedules ?? DEFAULTS.showSchedules,
     showAttention: config.showAttention ?? DEFAULTS.showAttention,
     showUsage: config.showUsage ?? DEFAULTS.showUsage,
+    showRecentChanges: config.showRecentChanges ?? DEFAULTS.showRecentChanges,
     showGroups: config.showGroups ?? DEFAULTS.showGroups,
     autoExpandActiveGroups: config.autoExpandActiveGroups ?? DEFAULTS.autoExpandActiveGroups,
     showTeams: config.showTeams ?? DEFAULTS.showTeams,
