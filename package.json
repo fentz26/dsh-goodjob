@@ -92,7 +92,8 @@
     "tsdown": "^0.22.2",
     "typescript": "^7.0.2",
     "vitest": "^4.1.8",
-    "jsdom": "^30.0.1"
+    "jsdom": "^30.0.1",
+    "@deepseek-ai/dsh-scope": "0.0.1-rc.1"
   },
   "files": [
     "cordis.patch.yml",
