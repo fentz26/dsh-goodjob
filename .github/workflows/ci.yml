@@ -1,0 +1,50 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  gate:
+    name: tests + bundle (${{ matrix.node }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node: [22, 24]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm test
+      # Bundle emission (both faces) does not require DSH source declarations;
+      # the full tsc typecheck runs in the dedicated job below.
+      - run: pnpm run build:package
+      - run: git diff --check
+
+  typecheck:
+    name: full typecheck (needs DSH source floor)
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      # Standalone resolution typechecks against published npm packages.
+      # Known limitation until upstream publishes the newer client-connection
+      # surfaces (api.jobs / JobOutputView) that only exist in the DSH
+      # monorepo today; the job is advisory rather than blocking.
+      - run: pnpm exec tsc --noEmit -p tsconfig.json
