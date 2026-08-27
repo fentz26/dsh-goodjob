@@ -124,6 +124,39 @@ export interface GoodJobTeamsProjection {
     teams: readonly GoodJobTeamView[];
 }
 /**
+ * Structural face of the upstream wait-provider seam (`WaitProvider` from
+ * `@deepseek-ai/dsh-wait`). Declared locally because that package is not yet
+ * published to the public npm registry; every member mirrors the owning DSH
+ * contract, so installations whose real declaration exists satisfy it exactly.
+ */
+export interface GoodJobWaitProvider {
+    /** Stable model-facing provider name. */
+    name: string;
+    /** Compact prompt description including the input fields. */
+    description: string;
+    /** Validate and canonicalize durable input before it enters the Session log. */
+    resolve(input: unknown, now: number): unknown;
+    /**
+     * Subscribe first, then verify authoritative state before returning.
+     * The returned disposer unbinds the provider contribution.
+     */
+    bind(request: {
+        agent: {
+            id: string;
+            session: {
+                events: readonly object[];
+            };
+        };
+        input: unknown;
+        signal: AbortSignal;
+        settle(value: unknown): void;
+    }): void | (() => void);
+}
+/** Registry face offered by the owning waits service once composed. */
+export interface GoodJobWaitRegistry {
+    registerProvider(provider: GoodJobWaitProvider): () => void;
+}
+/**
  * Client-visible mirror of one durable workflow run, folded from
  * `tool-workflow/*` Session events written by `@deepseek-ai/dsh-tool-workflow`.
  * The events carry no timestamps, so this view never invents any: elapsed or
