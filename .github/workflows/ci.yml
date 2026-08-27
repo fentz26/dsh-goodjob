@@ -63,7 +63,7 @@ jobs:
         with:
           node-version: 22
       - name: Install from public GitHub
-        run: npx -y @deepseek-ai/dsh@0.1.1-rc.2 plugin --profile web add github:fentz26/dsh-goodjob
+        run: pnpm dlx @deepseek-ai/dsh@0.1.1-rc.2 plugin --profile web add github:fentz26/dsh-goodjob
       - name: Verify registration and shipped artifact
         run: |
           test -f "$DSH_HOME/profiles/web/node_modules/dsh-goodjob/cordis.patch.yml"
@@ -71,7 +71,7 @@ jobs:
           test ! -e "$DSH_HOME/profiles/web/node_modules/dsh-goodjob/src"
       - name: Boot web profile and fetch client bundle
         run: |
-          npx -y @deepseek-ai/dsh@0.1.1-rc.2 --profile web --no-open >"$RUNNER_TEMP/dsh-web.log" 2>&1 &
+          pnpm dlx @deepseek-ai/dsh@0.1.1-rc.2 --profile web --no-open >"$RUNNER_TEMP/dsh-web.log" 2>&1 &
           server_pid=$!
           trap 'kill "$server_pid" 2>/dev/null || true' EXIT
           for attempt in $(seq 1 40); do
@@ -89,5 +89,5 @@ jobs:
           exit 1
       - name: Remove cleanly
         run: |
-          npx -y @deepseek-ai/dsh@0.1.1-rc.2 plugin --profile web remove dsh-goodjob
+          pnpm dlx @deepseek-ai/dsh@0.1.1-rc.2 plugin --profile web remove dsh-goodjob
           test ! -e "$DSH_HOME/profiles/web/node_modules/dsh-goodjob"
