@@ -1,12 +1,14 @@
 /** Read-only Agent Teams projection and the Team-task wait adapter. */
 import type { Context } from '@deepseek-ai/cordis'
-import type { WaitProvider } from '@deepseek-ai/dsh-wait'
+import { applyGroupEvent, registerGroupTool } from './groups.ts'
 import type {
   GoodJobTeamMemberView,
   GoodJobTeamMessageView,
   GoodJobTeamsProjection,
   GoodJobTeamTaskView,
   GoodJobTeamView,
+  GoodJobWaitProvider,
+  GoodJobWaitRegistry,
 } from './types.ts'
 
 /** Stable empty Team projection. */
@@ -171,7 +173,7 @@ function completedTask(events: readonly unknown[], teamId: string, taskId: strin
 
 /** Register current-state Team task completion over durable Team snapshots. */
 export function registerTeamTaskWaitProvider(ctx: Context): () => void {
-  const provider: WaitProvider = {
+  const provider: GoodJobWaitProvider = {
     name: 'team-task',
     description: 'Agent Team task completion; input {"task_id":"<id>"}',
     resolve(input) {
@@ -195,7 +197,7 @@ export function registerTeamTaskWaitProvider(ctx: Context): () => void {
       return dispose
     },
   }
-  const waits = ctx.get('waits') as { registerProvider(value: WaitProvider): () => void } | undefined
+  const waits = ctx.get('waits') as GoodJobWaitRegistry | undefined
   if (waits === undefined) throw new Error('team-task waits require @deepseek-ai/dsh-wait')
   return waits.registerProvider(provider)
 }

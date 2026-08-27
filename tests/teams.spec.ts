@@ -1,7 +1,7 @@
 /** Agent Teams durable projection behavior. */
 import { Context } from '@deepseek-ai/cordis'
 import type { Agent } from '@deepseek-ai/dsh-agent'
-import type { WaitProvider } from '@deepseek-ai/dsh-wait'
+import type { GoodJobWaitProvider } from '../src/types.ts'
 import { describe, expect, it, vi } from 'vitest'
 import { applyTeamEvent, registerTeamTaskWaitProvider } from '../src/teams.ts'
 
@@ -42,8 +42,8 @@ describe('GoodJob Team projection', () => {
 
   it('settles team-task waits from the durable current task snapshot', () => {
     const ctx = new Context()
-    let provider: WaitProvider | undefined
-    ctx.provide('waits', { registerProvider(value: WaitProvider) { provider = value; return () => {} } })
+    let provider: GoodJobWaitProvider | undefined
+    ctx.provide('waits', { registerProvider(value: GoodJobWaitProvider) { provider = value; return () => {} } })
     registerTeamTaskWaitProvider(ctx)
     const settle = vi.fn()
     const agent = { id: 'lead-1', session: { events: [{
