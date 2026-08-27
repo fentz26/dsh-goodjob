@@ -21,6 +21,8 @@ export interface Config {
     showAttention?: boolean;
     /** Show the Session usage panel from the upstream tokenUsage projection. */
     showUsage?: boolean;
+    /** Show the What changed section derived from authoritative timestamps. */
+    showRecentChanges?: boolean;
     /** Show durable logical Job Groups in the operations view. */
     showGroups?: boolean;
     /** Expand groups with live members when the operations view opens. */

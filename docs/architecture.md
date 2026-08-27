@@ -21,7 +21,7 @@ lib/                committed build output — installs need no build step
 
 ## Operations workspace (web profile)
 
-The native `GoodJob` conversation view opens on `General`, with an Explorer, stable internal tabs, and one to four split panes. Ordinary open focuses an existing entity tab; **Open to side**, split right/down, move, close, and reopen operate only on presentation state. On narrow screens the Explorer collapses and the focused pane remains available. Agent tabs also discover sibling DSH `conversation.view` registrations and can host any of them for that Session; Trajectory remains owned by its plugin rather than becoming GoodJob data.
+The native `GoodJob` conversation view opens on `General`, with an Explorer, stable internal tabs, and one to four split panes. Ordinary open focuses an existing entity tab; **Open to side**, split right/down, move, close, and reopen operate only on presentation state. On narrow screens the Explorer collapses and the focused pane remains available. General also includes a deterministic [Operations Delta](features/delta.md) since the last workspace visit. Its only stored state is the presentation-local reference timestamp; every displayed item comes from an authoritative timestamp already present in a projection. Agent tabs also discover sibling DSH `conversation.view` registrations and can host any of them for that Session; Trajectory remains owned by its plugin rather than becoming GoodJob data.
 
 `General` answers what is happening now with objective counts, attention state, timestamped activity, and a clickable relationship graph. Every value is projected from the capabilities below:
 
@@ -58,7 +58,7 @@ The bundle row mounts one service that:
 
 The upstream `goal` Session projection is consumed directly instead of mirrored: GoodJob never copies state an upstream authority already exposes as a projection.
 
-Feature documentation lives under [`docs/features/`](features/): [goals](features/goals.md), [workflows](features/workflows.md), [schedules](features/schedules.md), the [attention model](features/attention.md), [operations search](features/search.md) over DSH's session-query engine, [usage](features/usage.md) read from the durable token-meter projection, and the deliberate [artifacts deferral](features/artifacts.md).
+Feature documentation lives under [`docs/features/`](features/): [goals](features/goals.md), [workflows](features/workflows.md), [schedules](features/schedules.md), the [attention model](features/attention.md), [Operations Delta](features/delta.md), [operations search](features/search.md) over DSH's session-query engine, [usage](features/usage.md) read from the durable token-meter projection, and the deliberate [artifacts deferral](features/artifacts.md).
 
 Seams absent at load may still mount later in the same composition; the service attaches lazily through the `internal/service` event, and every disposer — immediate or late — drains through a single teardown effect on the service fiber.
 
