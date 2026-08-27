@@ -23,7 +23,7 @@ npx -y @deepseek-ai/dsh@0.1.1-rc.2 plugin --profile web update dsh-goodjob   # u
 npx -y @deepseek-ai/dsh@0.1.1-rc.2 plugin --profile web remove dsh-goodjob   # uninstall
 ```
 
-Requires Node ≥ 22.19 or ≥ 24, pnpm ≥ 10 on PATH, and Git credentials for `github.com` with access to this **private** repository. GoodJob stores no credentials anywhere. Full installation mechanics: [docs/installation.md](docs/installation.md).
+Requires Node ≥ 22.19 or ≥ 24, pnpm ≥ 10 on PATH, and Git (GitHub is reachable anonymously — this repository is public). GoodJob stores no credentials anywhere. Full installation mechanics: [docs/installation.md](docs/installation.md).
 
 ## Main features
 
@@ -56,7 +56,7 @@ Verified minimum: DeepSeek Harness **0.1.1-rc.2** — GoodJob installs, boots, a
 | [docs/workspace.md](docs/workspace.md) | workspace identity, persistence, projection, rendering reference |
 | [docs/development.md](docs/development.md) | local development against DSH sources |
 
-Security reports follow the private process in [SECURITY.md](SECURITY.md).
+Security reports follow the coordinated process in [SECURITY.md](SECURITY.md) — please use GitHub Private Vulnerability Reporting or the contact address there; do not open public issues for unpatched vulnerabilities.
 
 ## Contact
 

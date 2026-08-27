@@ -3,7 +3,7 @@
 ## Prerequisites
 
 - Node ≥ 22.19 or ≥ 24, pnpm ≥ 10 on PATH (the `dsh plugin` command forwards to pnpm).
-- Git credentials for `github.com` with access to this **private** repository. Standard tooling applies — `gh auth login` (git protocol https), or an SSH key configured for github.com. GoodJob stores no credentials anywhere.
+- Git with network access to `github.com`. The repository is **public**, so no credentials are needed for installation; standard tooling still applies when your environment requires authenticated clones (`gh auth login`, SSH keys). GoodJob stores no credentials anywhere.
 
 Verified runtime matrix: Node 22.x (npm 10) and Node 26 (npm 11) both complete the full lifecycle; pnpm 11.22 was the forwarding target in all acceptance runs.
 
@@ -19,7 +19,7 @@ What happens:
 2. The spec is forwarded to pnpm, which resolves `github:` sources through your normal Git credential path and pins the commit.
 3. Because the manifest declares `dsh.bundle.patch`, the reconciler adds `dsh-goodjob` to the profile's bundle list — no manual patch editing.
 
-Users without repository access see pnpm's authentication failure verbatim; there is no fallback and no token handling anywhere in GoodJob.
+Users see pnpm's install output verbatim — on a public repository installation succeeds anonymously, and any failure surfaces as a normal Git/pnpm error with no fallback and no token handling anywhere in GoodJob.
 
 The dependency resolves as `git+https://github.com/fentz26/dsh-goodjob.git`. Installation uses only committed artifacts (`lib/index.js`, `lib/client.js`, declarations, `cordis.patch.yml`); no build step runs on install.
 

@@ -11,7 +11,12 @@ GoodJob is an out-of-tree DeepSeek Harness plugin. It runs inside the DSH host a
 
 ## Reporting a vulnerability
 
-Please report suspected vulnerabilities privately. Use GitHub's **Report a vulnerability** flow in the repository's Security tab when it is available. If that flow is unavailable, send a private GitHub message to [@fentz26](https://github.com/fentz26). Do not open a public issue or discussion for an unpatched vulnerability.
+Please report suspected vulnerabilities privately. Preferred channels, in order:
+
+1. **GitHub Private Vulnerability Reporting** — the repository's **Security → Report a vulnerability** flow (see <https://github.com/fentz26/dsh-goodjob/security/advisories/new>).
+2. **Email fallback** — [contact@fentz.dev](mailto:contact@fentz.dev).
+
+Do not open a public issue or discussion for an unpatched vulnerability.
 
 Include, when safe to share:
 
