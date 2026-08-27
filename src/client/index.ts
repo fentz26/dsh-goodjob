@@ -29,6 +29,15 @@ interface SessionsFace {
     childSessionId: string
     mode: 'continuable' | 'one-shot'
   }): void
+  /** Live-preferred Session search backed by `ctx.sessionQuery`; absent when unbuilt. */
+  search?(
+    query: string,
+    signal: AbortSignal,
+  ): Promise<{
+    ok: boolean
+    value?: { items?: readonly { sessionId: string; snippet: string }[]; hasMore?: boolean }
+    error?: { message?: string }
+  }>
 }
 
 /** Read the sessions service structurally; out-of-tree builds must not depend
@@ -52,6 +61,7 @@ export function apply(ctx: ClientContext, config: Config = {}): void {
     showWorkflows: config.showWorkflows ?? DEFAULTS.showWorkflows,
     showSchedules: config.showSchedules ?? DEFAULTS.showSchedules,
     showAttention: config.showAttention ?? DEFAULTS.showAttention,
+    showUsage: config.showUsage ?? DEFAULTS.showUsage,
     showGroups: config.showGroups ?? DEFAULTS.showGroups,
     autoExpandActiveGroups: config.autoExpandActiveGroups ?? DEFAULTS.autoExpandActiveGroups,
     showTeams: config.showTeams ?? DEFAULTS.showTeams,
@@ -96,6 +106,7 @@ export function apply(ctx: ClientContext, config: Config = {}): void {
     config: resolved,
     refreshSubagents: parentSessionId => sessionsFace(ctx).refreshSubagents(parentSessionId),
     openChild: address => sessionsFace(ctx).openSubagent(address),
+    search: async (query, signal) => await sessionsFace(ctx).search?.(query, signal),
     sessionViews,
   })
   ctx.slots.inject(

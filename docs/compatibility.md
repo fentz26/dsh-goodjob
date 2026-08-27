@@ -22,6 +22,9 @@
 | Workflows (read) | ✅ folds durable `tool-workflow/*` events | ✅ | tool-workflow event stream |
 | Schedules (read-only) | ✅ folds durable `schedule/change` events | ✅ | schedule domain session-local records |
 | Needs Attention / Why idle | ✅ derived from projections above | ✅ | goal/jobs/tasks/schedules authority |
+| Operations search | ✅ via `sessions.search` (rc.2 apiproxy + session-query); explicit unavailable state when the engine is unmounted | ✅ | `@deepseek-ai/dsh-session-query` |
+| Usage panel | ✅ rc.2's built-in `tokenUsage` projection (self-per-Session) | ✅ | token-meter projection |
+| Artifacts | ❌ deferred — no upstream seam exists to project | ❌ | pending a generic deliverable authority |
 | Agent Teams (live controls) | ⚠️ degrades: projected state shows `available: false` | ⚠️ same unless Agent Teams is composed | optional `agentTeams` service |
 | Settings card (Settings → Plugins) | ❌ hidden — settings registry absent in rc.2; single boot diagnostic; defaults used | ✅ activates automatically | unreleased settings seam |
 | Hosted Session views / Trajectory hosting | ❌ prop absent → explicit "View unavailable" fallback UI; plugin keeps running | ✅ host injected via props | unreleased session slot host |

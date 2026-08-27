@@ -32,6 +32,9 @@ Requires Node ≥ 22.19 or ≥ 24, pnpm ≥ 10 on PATH, and Git credentials for 
 - **Workflows** ([docs](docs/features/workflows.md)) — durable workflow runs and member outcomes, exactly as the tool records them.
 - **Schedules** ([docs](docs/features/schedules.md)) — durable reminders projected read-only with explicit overdue state.
 - **Needs Attention** ([docs](docs/features/attention.md)) — deterministic blockers/failures derived from authoritative states, plus "Why idle?" on agents.
+- **Operations search** ([docs](docs/features/search.md)) — live-preferred Session search through DSH's own query engine; no shadow index.
+- **Usage** ([docs](docs/features/usage.md)) — exact token accounting from the durable `tokenUsage` projection; never a derived price.
+- **Artifacts** ([docs](docs/features/artifacts.md)) — deferred until DeepSeek Harness exposes a deliverable authority.
 - **Jobs** — live status, exact elapsed time, bounded searchable output; reading logs never advances the model-facing cursor.
 - **Job Groups** — durable Session-local labels over existing Job ids with exact member states; a compact `job_group` tool for fan-out / fan-in.
 - **Waits** — durable wait intents folded read-only from `wait/change` Session events.

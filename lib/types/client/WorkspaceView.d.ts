@@ -3,6 +3,7 @@ import type { InjectFace, PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-cli
 import type { Config } from '../config-types.ts';
 import type { GoodJobGroupView, GoodJobRuntimeTeamMember, GoodJobRuntimeTeamTask, GoodJobScheduleRecordView, GoodJobTeamMessageView, GoodJobWaitView, GoodJobWorkflowRunView } from '../types.ts';
 import { type AgentRow } from './AgentsList.tsx';
+import { type TokenUsageLike } from './usage.ts';
 import { NS } from './locales.ts';
 import type { GoodJobRpc } from './TeamsList.tsx';
 /** One Job paired with the Session id required by `jobs.observe`. */
@@ -23,6 +24,8 @@ export interface WorkspaceDomain {
     workflows: readonly GoodJobWorkflowRunView[];
     /** Schedule records folded from durable `schedule/change` events. */
     schedules: readonly GoodJobScheduleRecordView[];
+    /** Upstream `tokenUsage` projection (undefined when not composed). */
+    usage: TokenUsageLike | undefined;
     teamAvailable: boolean;
     teamLive: boolean;
     teamMembers: readonly GoodJobRuntimeTeamMember[];
@@ -60,6 +63,20 @@ export interface WorkspaceInjected {
         childSessionId: SessionId;
         mode: 'continuable' | 'one-shot';
     }): void;
+    /** Live-preferred Session search (`sessionQuery`-backed); absent when the deployment lacks the engine. */
+    search(query: string, signal: AbortSignal): Promise<{
+        ok: boolean;
+        value?: {
+            items?: readonly {
+                sessionId: string;
+                snippet: string;
+            }[];
+            hasMore?: boolean;
+        };
+        error?: {
+            message?: string;
+        };
+    } | undefined>;
     sessionViews: {
         list(): readonly WorkspaceSessionView[];
         subscribe(listener: () => void): () => void;
@@ -96,6 +113,7 @@ export interface GoodJobWorkspaceProps {
     onOpenSession(agent: AgentRow): void;
     onRefresh(): void;
     sessionViews: readonly WorkspaceSessionView[];
+    search: WorkspaceInjected['search'];
     sessionSlotHost?: SessionSlotHostComponent;
 }
 /** Native view wrapper: subscribe to DSH mirrors and read optional runtime adapters once. */

@@ -19,6 +19,7 @@ export const ConfigSchema: z<Config> = z.object({
   showWorkflows: z.boolean().default(DEFAULTS.showWorkflows),
   showSchedules: z.boolean().default(DEFAULTS.showSchedules),
   showAttention: z.boolean().default(DEFAULTS.showAttention),
+  showUsage: z.boolean().default(DEFAULTS.showUsage),
   showGroups: z.boolean().default(DEFAULTS.showGroups),
   autoExpandActiveGroups: z.boolean().default(DEFAULTS.autoExpandActiveGroups),
   showTeams: z.boolean().default(DEFAULTS.showTeams),

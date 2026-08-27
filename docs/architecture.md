@@ -58,7 +58,7 @@ The bundle row mounts one service that:
 
 The upstream `goal` Session projection is consumed directly instead of mirrored: GoodJob never copies state an upstream authority already exposes as a projection.
 
-Feature documentation lives under [`docs/features/`](features/): [goals](features/goals.md), [workflows](features/workflows.md), [schedules](features/schedules.md), and the [attention model](features/attention.md) covering Needs Attention derivation, blocking reasons, and "Why idle?".
+Feature documentation lives under [`docs/features/`](features/): [goals](features/goals.md), [workflows](features/workflows.md), [schedules](features/schedules.md), the [attention model](features/attention.md), [operations search](features/search.md) over DSH's session-query engine, [usage](features/usage.md) read from the durable token-meter projection, and the deliberate [artifacts deferral](features/artifacts.md).
 
 Seams absent at load may still mount later in the same composition; the service attaches lazily through the `internal/service` event, and every disposer — immediate or late — drains through a single teardown effect on the service fiber.
 

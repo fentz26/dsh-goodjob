@@ -24,6 +24,8 @@ import type {
 } from '../types.ts'
 import { toAgentRow, type AgentRow } from './AgentsList.tsx'
 import { deriveAttention, type AttentionItem } from './attention.ts'
+import { mapSearchResults, type SearchMappedResult, type SessionSearchHit } from './search.ts'
+import { usageRows, formatTokens, type TokenUsageLike } from './usage.ts'
 import { NS } from './locales.ts'
 import type { GoodJobRpc } from './TeamsList.tsx'
 import {
@@ -62,6 +64,8 @@ export interface WorkspaceDomain {
   workflows: readonly GoodJobWorkflowRunView[]
   /** Schedule records folded from durable `schedule/change` events. */
   schedules: readonly GoodJobScheduleRecordView[]
+  /** Upstream `tokenUsage` projection (undefined when not composed). */
+  usage: TokenUsageLike | undefined
   teamAvailable: boolean
   teamLive: boolean
   teamMembers: readonly GoodJobRuntimeTeamMember[]
@@ -95,6 +99,12 @@ export interface WorkspaceInjected {
   config: Required<Config>
   refreshSubagents(parentSessionId: SessionId): Promise<void>
   openChild(address: { parentSessionId: SessionId; childSessionId: SessionId; mode: 'continuable' | 'one-shot' }): void
+  /** Live-preferred Session search (`sessionQuery`-backed); absent when the deployment lacks the engine. */
+  search(query: string, signal: AbortSignal): Promise<{
+    ok: boolean
+    value?: { items?: readonly { sessionId: string; snippet: string }[]; hasMore?: boolean }
+    error?: { message?: string }
+  } | undefined>
   sessionViews: {
     list(): readonly WorkspaceSessionView[]
     subscribe(listener: () => void): () => void
@@ -129,6 +139,7 @@ export interface GoodJobWorkspaceProps {
   onOpenSession(agent: AgentRow): void
   onRefresh(): void
   sessionViews: readonly WorkspaceSessionView[]
+  search: WorkspaceInjected['search']
   sessionSlotHost?: SessionSlotHostComponent
 }
 
@@ -143,7 +154,7 @@ function isLive(job: JobView): boolean {
 export function WorkspaceView(props: WorkspaceViewProps) {
   const {
     sessionId, useSessions, useProjection, api, rpc, config, refreshSubagents, openChild,
-    sessionViews,
+    sessionViews, search,
   } = props
   const SessionSlotHost = (props as { SessionSlotHost?: SessionSlotHostComponent }).SessionSlotHost
   useSyncExternalStore(sessionViews.subscribe, sessionViews.version)
@@ -157,6 +168,7 @@ export function WorkspaceView(props: WorkspaceViewProps) {
   const goal = (useProjection('goal') as GoodJobGoalState | null | undefined) ?? null
   const workflows = ((useProjection('goodjob/workflows') as { runs?: readonly GoodJobWorkflowRunView[] } | undefined)?.runs ?? []) as readonly GoodJobWorkflowRunView[]
   const schedules = ((useProjection('goodjob/schedules') as { schedules?: readonly GoodJobScheduleRecordView[] } | undefined)?.schedules ?? []) as readonly GoodJobScheduleRecordView[]
+  const usage = (useProjection as unknown as (key: string) => TokenUsageLike | null | undefined)('tokenUsage') ?? undefined
   const groups = ((useProjection('goodjob/groups') as { groups?: readonly GoodJobGroupView[] } | undefined)?.groups ?? [])
     .filter(group => group.ownerSessionId === sessionId)
   const teamProjection = (useProjection('goodjob/teams') as {
@@ -200,6 +212,7 @@ export function WorkspaceView(props: WorkspaceViewProps) {
     goal,
     workflows,
     schedules,
+    usage,
     teamAvailable: operations?.team.available ?? false,
     teamLive: operations?.team.live ?? false,
     teamMembers: operations?.team.members ?? [],
@@ -214,6 +227,7 @@ export function WorkspaceView(props: WorkspaceViewProps) {
       config={config}
       storage={typeof localStorage === 'undefined' ? undefined : localStorage}
       onRefresh={refresh}
+      search={search}
       sessionViews={sessionViews.list()}
       sessionSlotHost={SessionSlotHost}
       onOpenSession={(agent) => {
@@ -265,6 +279,7 @@ export function GoodJobWorkspace(props: GoodJobWorkspaceProps) {
         collapsed={state.collapsedSections}
         onFilter={setFilter}
         onOpen={open}
+        search={props.search}
         onToggle={(kind) => { setState(current => toggleSection(current, kind)) }}
       />
       <main className="gj-main">
@@ -309,7 +324,82 @@ interface ExplorerProps {
   collapsed: readonly WorkspaceEntityKind[]
   onFilter(value: string): void
   onOpen(entity: WorkspaceEntity): void
+  /** Injected live Session-search face; absent when the runtime lacks it. */
+  search: WorkspaceInjected['search']
   onToggle(kind: WorkspaceEntityKind): void
+}
+
+type SearchPhase =
+  | { state: 'idle' }
+  | { state: 'loading' }
+  | { state: 'partial'; results: readonly SearchMappedResult[] }
+  | { state: 'done'; results: readonly SearchMappedResult[] }
+  | { state: 'unavailable' }
+  | { state: 'error'; message: string }
+
+/**
+ * Explorer search over DSH's live-preferred Session query surface. Results
+ * are ephemeral UI state (never persisted, never part of the domain graph);
+ * only hits resolvable to displayed lineage become navigable.
+ */
+function SearchPanel(props: {
+  agents: readonly AgentRow[]
+  search: WorkspaceInjected['search']
+  onOpen(entity: WorkspaceEntity): void
+}) {
+  const [term, setTerm] = useState('')
+  const [phase, setPhase] = useState<SearchPhase>({ state: 'idle' })
+  const runSearch = async (): Promise<void> => {
+    const needle = term.trim()
+    if (needle.length === 0) return setPhase({ state: 'idle' })
+    if (props.search === undefined) return setPhase({ state: 'unavailable' })
+    const controller = new AbortController()
+    setPhase({ state: 'loading' })
+    try {
+      const result = await props.search(needle, controller.signal)
+      if (!result || !result.ok) {
+        return setPhase({
+          state: 'error',
+          message: result?.error?.message ?? 'Session search failed.',
+        })
+      }
+      const items = mapSearchResults(result.value?.items, props.agents)
+      setPhase(result.value?.hasMore === true ? { state: 'partial', results: items } : { state: 'done', results: items })
+    } catch (cause: unknown) {
+      if (controller.signal.aborted) return
+      setPhase({ state: 'error', message: cause instanceof Error ? cause.message : String(cause) })
+    }
+  }
+  return (
+    <div className="gj-search">
+      <form className="gj-searchBar" onSubmit={event => { event.preventDefault(); void runSearch() }}>
+        <input type="search" aria-label="Search sessions" placeholder="Search sessions…" value={term}
+          onChange={event => { setTerm(event.target.value) }} />
+      </form>
+      {phase.state === 'loading' ? <p className="gj-quiet" role="status">Searching…</p> : null}
+      {(phase.state === 'done' || phase.state === 'partial') ? (
+        phase.results.length === 0 ? <p className="gj-quiet">No matching sessions.</p> : (
+          <ul className="gj-list gj-searchResults">
+            {phase.results.map(hit => (
+              <li key={hit.sessionId} className="gj-listRow gj-searchRow">
+                <button type="button"
+                  className="gj-linkButton gj-rowMain"
+                  disabled={hit.target === undefined}
+                  title={`${hit.label ?? hit.sessionId} · ${hit.snippet}`}
+                  onClick={() => { if (hit.target !== undefined) props.onOpen({ kind: 'agent', sessionId: hit.sessionId }) }}>
+                  <span>{hit.label ?? hit.sessionId}</span>
+                  <span className="gj-meta">{hit.snippet}</span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        )
+      ) : null}
+      {phase.state === 'partial' ? <p className="gj-quiet">More matches exist; refine the query.</p> : null}
+      {phase.state === 'unavailable' ? <p className="gj-quiet">Session search is unavailable in this deployment.</p> : null}
+      {phase.state === 'error' ? <p className="gj-quiet">Search failed: {phase.message}</p> : null}
+    </div>
+  )
 }
 
 function Explorer(props: ExplorerProps) {
@@ -342,6 +432,7 @@ function Explorer(props: ExplorerProps) {
         <button type="button" className="gj-iconButton" aria-label="Open General" onClick={() => { props.onOpen({ kind: 'general' }) }}>⌂</button>
       </div>
       <input className="gj-filter" type="search" aria-label="Filter workspace entities" placeholder="Filter agents, jobs, tasks…" value={props.filter} onChange={event => { props.onFilter(event.target.value) }} />
+      <SearchPanel agents={leadAndAgents(props.domain)} search={props.search} onOpen={props.onOpen} />
       <div className="gj-explorerScroll">
         <ExplorerSection label="Agents" kind="agent" collapsed={props.collapsed} onToggle={props.onToggle}>
           {agents.map(agent => (
@@ -656,6 +747,20 @@ function GeneralEditor(props: EntityEditorProps) {
                 {config.showTeams && !domain.teamAvailable ? <li className="gj-listRow gj-warning">Agent Teams adapter unavailable; Team tabs and controls are hidden.</li> : null}
               </ul>
             )}
+        </section>
+      ) : null}
+      {config.showUsage && domain.usage !== undefined && usageRows(domain.usage).length > 0 ? (
+        <section className="gj-section">
+          <h3 className="gj-sectionTitle">Usage</h3>
+          <dl className="gj-fields" aria-label="Session token usage">
+            {usageRows(domain.usage).map(row => (
+              <div key={row.key} className="gj-listRow gj-usageRow">
+                <dt>{row.label}</dt>
+                <dd title={String(row.tokens)}>{formatTokens(row.tokens)}</dd>
+              </div>
+            ))}
+          </dl>
+          <p className="gj-quiet">Provider-reported accounting for this Session's durable log; descendant totals are not exposed by current seams.</p>
         </section>
       ) : null}
       {config.showActivityFeed ? (

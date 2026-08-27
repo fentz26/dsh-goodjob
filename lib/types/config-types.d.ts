@@ -19,6 +19,8 @@ export interface Config {
     showSchedules?: boolean;
     /** Show the Needs Attention summary derived from authoritative states. */
     showAttention?: boolean;
+    /** Show the Session usage panel from the upstream tokenUsage projection. */
+    showUsage?: boolean;
     /** Show durable logical Job Groups in the operations view. */
     showGroups?: boolean;
     /** Expand groups with live members when the operations view opens. */
