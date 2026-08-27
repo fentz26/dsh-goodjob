@@ -4,3 +4,4 @@ node_modules/
 dsh.paths.json
 tsconfig.dev.json
 .playwright-mcp/
+session-ses_fbff.md
